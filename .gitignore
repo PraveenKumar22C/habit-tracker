@@ -1,0 +1,34 @@
+# v0 runtime files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+
+# dependencies
+node_modules/
+
+# nextjs build
+.next/
+out/
+
+# environment variables
+.env
+.env*.local
+backend/.env
+
+# OS files
+.DS_Store
+
+# logs
+*.log
+
+# build
+dist/
+build/
+
+# WhatsApp web.js session/cache (IMPORTANT)
+backend/.wwebjs_auth/
+backend/.wwebjs_cache/
+backend/sessions/
+
+# pnpm
+pnpm-lock.yaml
