@@ -11,29 +11,6 @@ if (!fs.existsSync(sessionsDir)) {
   fs.mkdirSync(sessionsDir, { recursive: true });
 }
 
-// Find Chrome executable — checks Render's cache path first, then fallbacks
-const getChromePath = () => {
-  const candidates = [
-    '/opt/render/.cache/puppeteer/chrome/linux-146.0.7680.66/chrome-linux64/chrome',
-    process.env.PUPPETEER_EXECUTABLE_PATH,
-    process.env.CHROME_BIN,
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-  ].filter(Boolean);
-
-  for (const p of candidates) {
-    if (fs.existsSync(p)) {
-      console.log(`[WhatsApp] Using Chrome at: ${p}`);
-      return p;
-    }
-  }
-
-  console.warn('[WhatsApp] No Chrome path found, letting Puppeteer auto-detect...');
-  return undefined;
-};
-
 class WhatsAppClient {
   constructor() {
     this.client = null;
@@ -57,13 +34,9 @@ class WhatsAppClient {
       console.log('[WhatsApp] Initializing WhatsApp client...');
 
       if (this.client) {
-        try {
-          await this.client.destroy();
-        } catch {}
+        try { await this.client.destroy(); } catch {}
         this.client = null;
       }
-
-      const chromePath = getChromePath();
 
       this.client = new Client({
         authStrategy: new LocalAuth({
@@ -72,7 +45,6 @@ class WhatsAppClient {
         }),
         puppeteer: {
           headless: true,
-          ...(chromePath && { executablePath: chromePath }),
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
