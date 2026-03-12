@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import { sessionExpiredEmailTemplate } from './emailTemplate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sessionsDir = path.join(__dirname, '../sessions');
@@ -12,7 +13,6 @@ if (!fs.existsSync(sessionsDir)) {
   fs.mkdirSync(sessionsDir, { recursive: true });
 }
 
-// ── Email alert ─────────────────────────────────────────────────────────────
 async function sendSessionExpiredEmail() {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -20,56 +20,53 @@ async function sendSessionExpiredEmail() {
       return;
     }
 
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, 
-      },
-    });
+    const { default: User } = await import('../models/User.js');
+    const adminUsers = await User.find({ isAdmin: true }).select('email name').lean();
+
+    if (!adminUsers.length) {
+      console.warn('[WhatsApp] No admin users found in DB — skipping alert email');
+      return;
+    }
+
+    const adminEmails = adminUsers.map(u => u.email);
+    console.log(`[WhatsApp] Sending session-expired alert to: ${adminEmails.join(', ')}`);
 
     const settingsUrl =
       `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?tab=whatsapp`;
 
-    await transporter.sendMail({
-      from: `"HabitTrack Bot" <${process.env.EMAIL_USER}>`,
-      to: process.env.ADMIN_EMAIL || 'mr.chandu.22@gmail.com',
-      subject: '⚠️ WhatsApp Session Expired — Re-scan Required',
-      html: `
-        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-                    max-width:480px;margin:0 auto;padding:36px 32px;
-                    background:#111;color:#f0f0f0;border-radius:12px;">
-          <h2 style="color:#f59e0b;margin:0 0 6px;font-size:20px;">
-            ⚠️ WhatsApp Session Cleared
-          </h2>
-          <p style="color:#a1a1aa;margin:0 0 20px;font-size:14px;">
-            Your WhatsApp session for HabitTrack has expired or been disconnected.
-            <strong style="color:#f0f0f0;">All reminders are paused</strong> until you re-link.
-          </p>
-          <p style="color:#f0f0f0;margin:0 0 24px;font-size:14px;">
-            Open your settings and scan the new QR code to restore reminders.
-          </p>
-          <a href="${settingsUrl}"
-             style="display:inline-block;padding:12px 28px;
-                    background:linear-gradient(135deg,#7c3aed,#4f46e5);
-                    color:#fff;text-decoration:none;border-radius:8px;
-                    font-weight:600;font-size:15px;letter-spacing:0.3px;">
-            Open WhatsApp Settings →
-          </a>
-          <p style="color:#3f3f46;margin:28px 0 0;font-size:11px;">
-            Sent automatically by your HabitTrack server.
-          </p>
-        </div>
-      `,
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
 
-    console.log('[WhatsApp] 📧 Session-expired alert sent to', process.env.ADMIN_EMAIL || 'mr.chandu.22@gmail.com');
+    const logoPath = path.join(__dirname, '../public/apple-icon.png');
+    const logoExists = fs.existsSync(logoPath);
+
+    await transporter.sendMail({
+      from: `"HabitTrack Bot" <${process.env.EMAIL_USER}>`,
+      to: adminEmails.join(', '),
+      subject: '⚠️ WhatsApp Session Expired — Re-scan Required',
+      html: sessionExpiredEmailTemplate({ settingsUrl }),
+      ...(logoExists && {
+        attachments: [
+          {
+            filename: 'apple-icon.png',
+            path: logoPath,
+            cid: 'habitTrackerLogo',
+          },
+        ],
+      }),
+    });
+
+    console.log(`[WhatsApp] 📧 Alert sent to: ${adminEmails.join(', ')}`);
   } catch (err) {
     console.error('[WhatsApp] Failed to send alert email:', err.message);
   }
 }
 
-// ── WhatsApp Client ─────────────────────────────────────────────────────────
 class WhatsAppClient {
   constructor() {
     this.client = null;
@@ -79,7 +76,6 @@ class WhatsAppClient {
     this.maxReconnectAttempts = 999;
     this.reconnectDelay = 5000;
     this.isInitializing = false;
-    // Track auth events so we can detect "second scan = keep latest, wipe old"
     this._authenticatedOnce = false;
   }
 
@@ -127,8 +123,6 @@ class WhatsAppClient {
 
       this.client.on('authenticated', () => {
         if (this._authenticatedOnce) {
-          // Second (or later) scan in the same server process:
-          // LocalAuth overwrites the session automatically, so just log.
           console.log('[WhatsApp] Re-authenticated. New session saved — old one replaced.');
         } else {
           console.log('[WhatsApp] Authenticated! Session saved.');
@@ -161,7 +155,6 @@ class WhatsAppClient {
         this.qrCode = null;
         this.isInitializing = false;
 
-        // LOGOUT / CONFLICT = session expired or phone unpaired
         if (reason === 'LOGOUT' || reason === 'CONFLICT') {
           console.log('[WhatsApp] Session expired. Wiping session folder...');
           this._wipeSession();
