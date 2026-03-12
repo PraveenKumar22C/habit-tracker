@@ -4,18 +4,13 @@ import ReminderLog from '../models/ReminderLog.js';
 import User from '../models/User.js';
 import whatsappClient from './whatsappClient.js';
 
-// IST = UTC+5:30
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
-/**
- * Returns current IST time details.
- */
 function getISTNow() {
   const nowUTC = new Date();
   const istMs = nowUTC.getTime() + IST_OFFSET_MS;
   const ist = new Date(istMs);
 
-  // IST midnight expressed as UTC (for MongoDB date-range queries)
   const istMidnightUTC = new Date(
     Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - IST_OFFSET_MS
   );
@@ -78,22 +73,20 @@ class HabitReminderService {
       const scheduledMinutes = timeToMinutes(reminderTime);
       const elapsed = nowMinutes - scheduledMinutes;
 
-      // ── 10-minute window: [0, 10] minutes after scheduled time ───────────
       if (elapsed < 0 || elapsed > SEND_WINDOW_MINUTES) return;
 
-      // ── Already sent (or skipped) today? ──────────────────────────────────
       const alreadyLogged = await ReminderLog.findOne({
         habitId: habit._id,
         userId: user._id,
         date: todayIST,
-        reminderSent: true,
+        status: { $in: ['sent', 'failed'] },
       });
+
       if (alreadyLogged) {
-        console.log(`[ReminderService] Already handled "${habit.name}" today, skipping`);
+        console.log(`[ReminderService] Already handled "${habit.name}" today (status: ${alreadyLogged.status}), skipping`);
         return;
       }
 
-      // ── Already completed today? ──────────────────────────────────────────
       const completedToday = await HabitLog.findOne({
         habitId: habit._id,
         userId: user._id,
@@ -114,7 +107,6 @@ class HabitReminderService {
         return;
       }
 
-      // ── Fire! ─────────────────────────────────────────────────────────────
       await this._sendReminderMessage(user, habit, todayIST);
     } catch (error) {
       console.error(`[ReminderService] Error processing habit "${habit.name}":`, error.message);

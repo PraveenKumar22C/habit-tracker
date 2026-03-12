@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
-import QRCode from 'qrcode';                          // ← NEW
+import QRCode from 'qrcode';
 import { sessionExpiredEmailTemplate } from './emailTemplate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -74,8 +74,8 @@ class WhatsAppClient {
   constructor() {
     this.client = null;
     this.isReady = false;
-    this.qrCode = null;     
-    this.qrTimestamp = null;  
+    this.qrCode = null;
+    this.qrTimestamp = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 999;
     this.reconnectDelay = 5000;
@@ -105,7 +105,7 @@ class WhatsAppClient {
         }),
         puppeteer: {
           headless: true,
-          protocolTimeout: 60000,
+          protocolTimeout: 300000,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -117,6 +117,8 @@ class WhatsAppClient {
             '--disable-gpu',
             '--disable-extensions',
             '--disable-software-rasterizer',
+            '--memory-pressure-off',      
+            '--disable-background-networking',
           ],
         },
       });
@@ -201,7 +203,6 @@ class WhatsAppClient {
     }
   }
 
-  // ── NEW: returns a PNG data URI (or null) ──────────────────────────────
   async getQRCodeImage() {
     if (!this.qrCode) return null;
 
@@ -227,14 +228,20 @@ class WhatsAppClient {
     }
   }
 
-  getRawQR()    { return this.qrCode; } 
-  getQRCode()   { return this.qrCode; }  
+  getRawQR()    { return this.qrCode; }
+  getQRCode()   { return this.qrCode; }
   isConnected() { return this.isReady; }
 
   async sendMessage(number, message) {
     if (!this.isReady) throw new Error('WhatsApp client is not ready');
     const chatId = `${number}@c.us`;
-    await this.client.sendMessage(chatId, message);
+
+    const sendPromise = this.client.sendMessage(chatId, message);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('sendMessage timed out after 30s')), 30000)
+    );
+
+    await Promise.race([sendPromise, timeoutPromise]);
     console.log(`[WhatsApp] Message sent to ${number}`);
     return { success: true };
   }
