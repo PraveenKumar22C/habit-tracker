@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Loader2, ShieldX } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, ShieldX, RefreshCw } from 'lucide-react';
 
 export function WhatsAppQRDisplay() {
   const { user } = useAuthStore();
@@ -13,8 +13,10 @@ export function WhatsAppQRDisplay() {
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  // Only admins see this component — bail out early for regular users
+  const isConnectedRef = useRef(false);
+
   const isAdmin = (user as any)?.isAdmin === true;
 
   useEffect(() => {
@@ -22,28 +24,39 @@ export function WhatsAppQRDisplay() {
 
     const poll = async () => {
       try {
-        // Use the new /qr endpoint that returns a real PNG data URI
         const res = await api.get('/whatsapp/qr');
-        setIsConnected(res.connected);
-        setQrCode(res.qrCode ?? null);
+
+        const connected: boolean = res.connected;
+        const qr: string | null = res.qrCode ?? null;
+
+        setIsConnected(connected);
+        isConnectedRef.current = connected;
+        setQrCode(qr);
         setError(null);
+        setLastUpdated(new Date());
+
+        return connected;
       } catch (err: any) {
         setError(err?.error || 'Failed to fetch WhatsApp status');
+        return false;
       } finally {
         setLoading(false);
       }
     };
 
     poll();
-    // Poll every 8 seconds until connected
-    const interval = setInterval(() => {
-      if (!isConnected) poll();
-    }, 8000);
+
+    const interval = setInterval(async () => {
+      if (isConnectedRef.current) {
+        clearInterval(interval);
+        return;
+      }
+      await poll();
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [isAdmin, isConnected]);
+  }, [isAdmin]);
 
-  // ── Non-admin users: show nothing (or a locked card) ──────────────────────
   if (!isAdmin) {
     return (
       <Card className="border-dashed">
@@ -55,7 +68,6 @@ export function WhatsAppQRDisplay() {
     );
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <Card>
@@ -70,7 +82,6 @@ export function WhatsAppQRDisplay() {
     );
   }
 
-  // ── Already connected ─────────────────────────────────────────────────────
   if (isConnected) {
     return (
       <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
@@ -95,14 +106,14 @@ export function WhatsAppQRDisplay() {
     );
   }
 
-  // ── Needs scanning ────────────────────────────────────────────────────────
   return (
     <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
       <CardHeader>
         <CardTitle>WhatsApp Setup Required</CardTitle>
-        <CardDescription>Scan the QR code to link the bot account</CardDescription>
+        <CardDescription>Scan the QR code below to link the bot account</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+
         {error && (
           <div className="flex items-center gap-2 p-3 bg-red-100 dark:bg-red-900 rounded-lg text-sm text-red-700 dark:text-red-300">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -112,9 +123,9 @@ export function WhatsAppQRDisplay() {
 
         {qrCode ? (
           <>
-            {/* qrCode is already a PNG data URI from the backend — just use <img> */}
             <div className="bg-white p-4 rounded-xl flex justify-center shadow-sm">
               <img
+                key={qrCode}
                 src={qrCode}
                 alt="WhatsApp QR Code"
                 width={256}
@@ -127,15 +138,21 @@ export function WhatsAppQRDisplay() {
               <p className="font-semibold mb-2">How to link:</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Open WhatsApp on the bot phone</li>
-                <li>Go to Settings → Linked Devices</li>
-                <li>Tap "Link a Device"</li>
+                <li>Go to <strong>Settings → Linked Devices</strong></li>
+                <li>Tap <strong>"Link a Device"</strong></li>
                 <li>Point the camera at this QR code</li>
               </ol>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-              QR refreshes automatically every 8 seconds. Page auto-updates when connected.
-            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <RefreshCw className="w-3 h-3" />
+              <span>
+                QR refreshes every 5 seconds to stay valid.
+                {lastUpdated && (
+                  <> Last updated: {lastUpdated.toLocaleTimeString()}</>
+                )}
+              </span>
+            </div>
           </>
         ) : (
           <div className="text-center py-8">

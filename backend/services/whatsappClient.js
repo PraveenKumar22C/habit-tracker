@@ -1,10 +1,10 @@
-// services/whatsappClient.js
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
+import QRCode from 'qrcode';                          // ← NEW
 import { sessionExpiredEmailTemplate } from './emailTemplate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -74,7 +74,8 @@ class WhatsAppClient {
   constructor() {
     this.client = null;
     this.isReady = false;
-    this.qrCode = null;
+    this.qrCode = null;     
+    this.qrTimestamp = null;  
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 999;
     this.reconnectDelay = 5000;
@@ -104,7 +105,7 @@ class WhatsAppClient {
         }),
         puppeteer: {
           headless: true,
-          protocolTimeout: 60000,   // ← fix: give Chrome 60s to respond
+          protocolTimeout: 60000,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -121,24 +122,27 @@ class WhatsAppClient {
       });
 
       this.client.on('qr', (qr) => {
-        console.log('[WhatsApp] QR Code received. Scan once to connect permanently.');
+        console.log('[WhatsApp] New QR Code received.');
         this.qrCode = qr;
+        this.qrTimestamp = Date.now();
       });
 
       this.client.on('authenticated', () => {
         if (this._authenticatedOnce) {
-          console.log('[WhatsApp] Re-authenticated. New session saved — old one replaced.');
+          console.log('[WhatsApp] Re-authenticated. New session saved.');
         } else {
           console.log('[WhatsApp] Authenticated! Session saved.');
           this._authenticatedOnce = true;
         }
         this.qrCode = null;
+        this.qrTimestamp = null;
       });
 
       this.client.on('ready', () => {
         console.log('[WhatsApp] Client is ready! ✅');
         this.isReady = true;
         this.qrCode = null;
+        this.qrTimestamp = null;
         this.reconnectAttempts = 0;
         this.reconnectDelay = 5000;
         this.isInitializing = false;
@@ -157,6 +161,7 @@ class WhatsAppClient {
         console.log('[WhatsApp] Disconnected:', reason);
         this.isReady = false;
         this.qrCode = null;
+        this.qrTimestamp = null;
         this.isInitializing = false;
 
         if (reason === 'LOGOUT' || reason === 'CONFLICT') {
@@ -196,7 +201,34 @@ class WhatsAppClient {
     }
   }
 
-  getQRCode()   { return this.qrCode; }
+  // ── NEW: returns a PNG data URI (or null) ──────────────────────────────
+  async getQRCodeImage() {
+    if (!this.qrCode) return null;
+
+    const age = Date.now() - (this.qrTimestamp || 0);
+    if (age > 25000) {
+      console.log('[WhatsApp] QR code expired (age:', Math.round(age / 1000), 's), waiting for new one...');
+      return null;
+    }
+
+    try {
+      const dataUri = await QRCode.toDataURL(this.qrCode, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+      return dataUri;
+    } catch (err) {
+      console.error('[WhatsApp] Failed to generate QR image:', err.message);
+      return null;
+    }
+  }
+
+  getRawQR()    { return this.qrCode; } 
+  getQRCode()   { return this.qrCode; }  
   isConnected() { return this.isReady; }
 
   async sendMessage(number, message) {
