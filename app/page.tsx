@@ -1,23 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Flame, TrendingUp, Calendar, Trophy } from 'lucide-react';
 
 export default function Home() {
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
+  const token = useAuthStore((s) => s.token);
 
   useEffect(() => {
-    const storedToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    setToken(storedToken);
-
-    if (storedToken) {
+    if (token) {
       router.push('/dashboard');
     }
-  }, [router]);
+  }, [token, router]);
+
+  if (token) return null;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-background via-background to-muted">
@@ -46,7 +46,8 @@ export default function Home() {
             Build Better Habits, Celebrate Your Progress
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-            Track your daily habits, visualize your streaks, and reach your goals with beautiful analytics and motivating milestones.
+            Track your daily habits, visualize your streaks, and reach your goals with beautiful
+            analytics and motivating milestones.
           </p>
           <div className="flex gap-4 justify-center pt-4">
             <Link href="/register">
@@ -111,7 +112,15 @@ export default function Home() {
   );
 }
 
-function Feature({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+function Feature({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="p-6 rounded-lg border border-border bg-card hover:shadow-lg transition-shadow">
       <div className="mb-4">{icon}</div>

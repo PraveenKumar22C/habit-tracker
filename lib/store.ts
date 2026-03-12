@@ -7,6 +7,7 @@ export interface User {
   phone?: string;
   whatsappNumber?: string;
   profileImage?: string;
+  isAdmin?: boolean;
   preferences: {
     theme: 'light' | 'dark';
     reminderTime: string;
@@ -53,6 +54,7 @@ interface AuthStore {
   user: User | null;
   token: string | null;
   loading: boolean;
+  _hydrated: boolean;
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -60,29 +62,42 @@ interface AuthStore {
   logout: () => void;
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
-  user: null,
-  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
-  loading: false,
-  setUser: (user) => set({ user }),
-  setToken: (token) => {
-    set({ token });
-    if (token) {
+export const useAuthStore = create<AuthStore>((set) => {
+  const storedToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (typeof window !== 'undefined') {
+    setTimeout(() => set({ _hydrated: true }), 0);
+  }
+
+  return {
+    user: null,
+    token: storedToken,
+    loading: false,
+    _hydrated: false,
+
+    setUser: (user) => set({ user }),
+
+    setToken: (token) => {
+      set({ token });
+      if (token) {
+        localStorage.setItem('token', token);
+      } else {
+        localStorage.removeItem('token');
+      }
+    },
+
+    setLoading: (loading) => set({ loading }),
+
+    login: (token: string, user: User) => {
+      set({ token, user });
       localStorage.setItem('token', token);
-    } else {
+    },
+
+    logout: () => {
+      set({ user: null, token: null });
       localStorage.removeItem('token');
-    }
-  },
-  setLoading: (loading) => set({ loading }),
-  login: (token: string, user: User) => {
-    set({ token, user });
-    localStorage.setItem('token', token);
-  },
-  logout: () => {
-    set({ user: null, token: null });
-    localStorage.removeItem('token');
-  },
-}));
+    },
+  };
+});
 
 interface HabitStore {
   habits: Habit[];
@@ -139,7 +154,12 @@ interface AnalyticsStore {
   totalHabits: number;
   recentCompletions: number;
   milestonesReached: number;
-  setStats: (stats: { completionRate: number; totalHabits: number; recentCompletions: number; milestonesReached: number }) => void;
+  setStats: (stats: {
+    completionRate: number;
+    totalHabits: number;
+    recentCompletions: number;
+    milestonesReached: number;
+  }) => void;
 }
 
 export const useAnalyticsStore = create<AnalyticsStore>((set) => ({

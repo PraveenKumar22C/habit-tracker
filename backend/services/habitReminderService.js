@@ -4,8 +4,38 @@ import ReminderLog from '../models/ReminderLog.js';
 import User from '../models/User.js';
 import whatsappClient from './whatsappClient.js';
 
-class HabitReminderService {
+// IST = UTC+5:30
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
+/**
+ * Returns current IST time details.
+ */
+function getISTNow() {
+  const nowUTC = new Date();
+  const istMs = nowUTC.getTime() + IST_OFFSET_MS;
+  const ist = new Date(istMs);
+
+  // IST midnight expressed as UTC (for MongoDB date-range queries)
+  const istMidnightUTC = new Date(
+    Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - IST_OFFSET_MS
+  );
+
+  return {
+    hours: ist.getUTCHours(),
+    minutes: ist.getUTCMinutes(),
+    todayIST: istMidnightUTC,
+    tomorrowIST: new Date(istMidnightUTC.getTime() + 24 * 60 * 60 * 1000),
+    dateKey: `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}-${String(ist.getUTCDate()).padStart(2, '0')}`,
+  };
+}
+
+/** Convert "HH:MM" to total minutes since midnight */
+function timeToMinutes(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+class HabitReminderService {
   async checkAndSendReminders() {
     try {
       if (!whatsappClient.isConnected()) {
@@ -13,15 +43,15 @@ class HabitReminderService {
         return;
       }
 
-      const now = new Date();
-      const currentHour   = now.getHours();
-      const currentMinute = now.getMinutes();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const { hours, minutes, todayIST, tomorrowIST, dateKey } = getISTNow();
+      const nowMinutes = hours * 60 + minutes;
 
-      console.log(`[ReminderService] Checking reminders at ${String(currentHour).padStart(2,'0')}:${String(currentMinute).padStart(2,'0')}`);
+      console.log(
+        `[ReminderService] Hourly check | IST ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')} (${nowMinutes} min since midnight) | date: ${dateKey}`
+      );
 
       const users = await User.find({
-        whatsappNumber: { $exists: true, $ne: null },
+        whatsappNumber: { $exists: true, $ne: null, $ne: '' },
       });
 
       for (const user of users) {
@@ -32,70 +62,65 @@ class HabitReminderService {
         });
 
         for (const habit of habits) {
-          await this._processHabitReminder(user, habit, now, today);
+          await this._processHabitReminder(user, habit, nowMinutes, todayIST, tomorrowIST);
         }
       }
     } catch (error) {
-      console.error('[ReminderService] Error checking reminders:', error);
+      console.error('[ReminderService] Error in checkAndSendReminders:', error);
     }
   }
 
-  async _processHabitReminder(user, habit, now, today) {
+  async _processHabitReminder(user, habit, nowMinutes, todayIST, tomorrowIST) {
     try {
       const reminderTime = habit.reminder?.time || '09:00';
-      const [reminderHour, reminderMinute] = reminderTime.split(':').map(Number);
+      const scheduledMinutes = timeToMinutes(reminderTime);
+      const elapsed = nowMinutes - scheduledMinutes;
 
-      const scheduledMs = new Date(
-        now.getFullYear(), now.getMonth(), now.getDate(),
-        reminderHour, reminderMinute, 0, 0
-      ).getTime();
+      // ── 2-hour window: [0, 120] minutes after scheduled time ─────────────
+      if (elapsed < 0 || elapsed > 120) return;
 
-      const diffMinutes = (now.getTime() - scheduledMs) / 60000;
-
-      if (diffMinutes < 0 || diffMinutes > 5) {
-        return;
-      }
-
-      const alreadySent = await ReminderLog.findOne({
+      // ── Already sent (or skipped) today? ──────────────────────────────────
+      const alreadyLogged = await ReminderLog.findOne({
         habitId: habit._id,
         userId: user._id,
-        date: today,
+        date: todayIST,
         reminderSent: true,
       });
-
-      if (alreadySent) {
+      if (alreadyLogged) {
+        console.log(`[ReminderService] Already handled "${habit.name}" today, skipping`);
         return;
       }
 
-      const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-      const todayLog = await HabitLog.findOne({
+      // ── Already completed today? ──────────────────────────────────────────
+      const completedToday = await HabitLog.findOne({
         habitId: habit._id,
         userId: user._id,
-        date: { $gte: today, $lt: tomorrow },
+        date: { $gte: todayIST, $lt: tomorrowIST },
         completed: true,
       });
 
-      if (todayLog) {
+      if (completedToday) {
+        // Record a skip so we don't check again
         await ReminderLog.create({
           habitId: habit._id,
           userId: user._id,
-          date: today,
+          date: todayIST,
           reminderSent: true,
           status: 'sent',
           sentAt: new Date(),
-          message: 'Already completed, no reminder needed',
+          message: 'Habit already completed today — reminder skipped',
         });
         return;
       }
 
-      await this._sendReminderMessage(user, habit, today);
-
+      // ── Fire! ─────────────────────────────────────────────────────────────
+      await this._sendReminderMessage(user, habit, todayIST);
     } catch (error) {
       console.error(`[ReminderService] Error processing habit "${habit.name}":`, error.message);
     }
   }
 
-  async _sendReminderMessage(user, habit, today) {
+  async _sendReminderMessage(user, habit, todayIST) {
     try {
       const message =
         `🔔 *Habit Reminder*\n\n` +
@@ -108,7 +133,7 @@ class HabitReminderService {
       await ReminderLog.create({
         habitId: habit._id,
         userId: user._id,
-        date: today,
+        date: todayIST,
         reminderSent: true,
         status: 'sent',
         sentAt: new Date(),
@@ -122,14 +147,13 @@ class HabitReminderService {
       await ReminderLog.create({
         habitId: habit._id,
         userId: user._id,
-        date: today,
+        date: todayIST,
         reminderSent: false,
         status: 'failed',
         error: error.message,
-      });
+      }).catch(() => {});
     }
   }
-
 
   async sendWeeklyReports() {
     try {
@@ -192,11 +216,11 @@ class HabitReminderService {
       if (!whatsappClient.isConnected() || !user.whatsappNumber) return;
 
       const milestones = {
-        3:   '🎉 3-day streak! You\'re building momentum!',
-        7:   '🔥 One full week! You\'re unstoppable!',
-        21:  '🏆 21 days! You\'ve officially formed a habit!',
-        30:  '👑 30 days! Absolutely extraordinary!',
-        100: '💯 100 DAYS! You are a habit LEGEND!',
+        3:   "🎉 3-day streak! You're building momentum!",
+        7:   "🔥 One full week! You're unstoppable!",
+        21:  "🏆 21 days! You've officially formed a habit!",
+        30:  "👑 30 days! Absolutely extraordinary!",
+        100: "💯 100 DAYS! You are a habit LEGEND!",
       };
 
       if (!milestones[streak]) return;
@@ -209,7 +233,7 @@ class HabitReminderService {
       await whatsappClient.sendMessage(user.whatsappNumber, message);
       console.log(`[ReminderService] Milestone (${streak} days) sent to ${user.whatsappNumber}`);
     } catch (error) {
-      console.error(`[ReminderService] Failed to send milestone:`, error.message);
+      console.error('[ReminderService] Failed to send milestone:', error.message);
     }
   }
 }
