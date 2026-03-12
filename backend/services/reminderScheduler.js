@@ -41,7 +41,7 @@ class ReminderScheduler {
 
       console.log('[ReminderScheduler] ✅ Scheduler started');
       console.log('[ReminderScheduler]    Reminder check : every 5 minutes');
-      console.log('[ReminderScheduler]    Send window    : ±10 minutes of scheduled time');
+      console.log('[ReminderScheduler]    Send window    : 60 minutes after scheduled time');
       console.log('[ReminderScheduler]    Weekly reports : Sunday 9 PM IST (15:30 UTC)');
     } catch (error) {
       console.error('[ReminderScheduler] Failed to start scheduler:', error);

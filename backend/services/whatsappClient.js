@@ -1,3 +1,4 @@
+// services/whatsappClient.js
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import fs from 'fs';
@@ -13,6 +14,7 @@ if (!fs.existsSync(sessionsDir)) {
   fs.mkdirSync(sessionsDir, { recursive: true });
 }
 
+// ── Email alert ─────────────────────────────────────────────────────────────
 async function sendSessionExpiredEmail() {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -67,6 +69,7 @@ async function sendSessionExpiredEmail() {
   }
 }
 
+// ── WhatsApp Client ─────────────────────────────────────────────────────────
 class WhatsAppClient {
   constructor() {
     this.client = null;
@@ -101,6 +104,7 @@ class WhatsAppClient {
         }),
         puppeteer: {
           headless: true,
+          protocolTimeout: 60000,   // ← fix: give Chrome 60s to respond
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
