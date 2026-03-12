@@ -51,7 +51,6 @@ export function GoogleSignIn() {
   const initializeGoogle = () => {
     if (!window.google || !clientId || !buttonRef.current) return;
 
-    // Cancel any previous session to ensure clean re-init after logout
     window.google.accounts.id.cancel();
 
     window.google.accounts.id.initialize({
@@ -59,10 +58,13 @@ export function GoogleSignIn() {
       callback: handleCredentialResponse,
     });
 
+    const containerWidth = buttonRef.current.offsetWidth;
+    const buttonWidth = Math.min(Math.max(containerWidth, 200), 400);
+
     window.google.accounts.id.renderButton(buttonRef.current, {
       theme: 'outline',
       size: 'large',
-      width: buttonRef.current.offsetWidth || 400,
+      width: buttonWidth,
       text: 'signin_with',
       shape: 'rectangular',
     });
@@ -71,32 +73,38 @@ export function GoogleSignIn() {
   useEffect(() => {
     if (!clientId) return;
 
-    // If script is already loaded (e.g. navigated back after logout)
     if (window.google) {
       initializeGoogle();
       return;
     }
 
-    // Check if script tag already exists (avoid duplicates)
     const existingScript = document.querySelector(
       'script[src="https://accounts.google.com/gsi/client"]'
     );
 
     if (existingScript) {
-      // Script exists but google object not ready yet — wait for load
       existingScript.addEventListener('load', initializeGoogle);
       return () => existingScript.removeEventListener('load', initializeGoogle);
     }
 
-    // Fresh script injection
     const script = document.createElement('script');
     script.src = 'https://accounts.google.com/gsi/client';
     script.async = true;
     script.defer = true;
     script.onload = initializeGoogle;
     document.body.appendChild(script);
+  }, [clientId]);
 
-    // No cleanup removal — keeping script alive avoids re-load on remount
+  // Re-render button on window resize for responsiveness
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.google && clientId) {
+        initializeGoogle();
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [clientId]);
 
   if (!clientId) {
@@ -119,8 +127,10 @@ export function GoogleSignIn() {
           Signing in...
         </div>
       )}
-      {/* Google renders its own button inside here */}
-      <div ref={buttonRef} className="flex justify-center w-full" />
+      <div
+        ref={buttonRef}
+        className="flex justify-center w-full overflow-hidden"
+      />
     </div>
   );
 }

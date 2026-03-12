@@ -20,11 +20,13 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const isAdmin = (user as any)?.isAdmin === true;
+
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    whatsappNumber: user?.whatsappNumber || '',   
+    whatsappNumber: user?.whatsappNumber || '',
     reminderTime: user?.preferences?.reminderTime || '09:00',
     reminderType: user?.preferences?.reminderType || 'daily',
     theme: user?.preferences?.theme || 'dark',
@@ -37,7 +39,7 @@ export default function SettingsPage() {
         name: user.name || '',
         email: user.email || '',
         phone: user.phone || '',
-        whatsappNumber: user.whatsappNumber || '',   
+        whatsappNumber: user.whatsappNumber || '',
         reminderTime: user.preferences?.reminderTime || '09:00',
         reminderType: user.preferences?.reminderType || 'daily',
         theme: user.preferences?.theme || 'dark',
@@ -70,19 +72,17 @@ export default function SettingsPage() {
       const response = await api.auth.updateProfile({
         name: formData.name,
         phone: formData.phone,
-        whatsappNumber: formData.whatsappNumber,      
+        whatsappNumber: formData.whatsappNumber,
         preferences: {
           theme: formData.theme,
           reminderTime: formData.reminderTime,
-          reminderType: formData.reminderType,          
+          reminderType: formData.reminderType,
           whatsappReminders: formData.whatsappReminders,
         },
       });
 
       setUser(response);
-
       setTheme(formData.theme);
-
       setMessage('Profile updated successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (err: any) {
@@ -108,6 +108,7 @@ export default function SettingsPage() {
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
 
+          {/* ── Profile ── */}
           <TabsContent value="profile" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -116,8 +117,16 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSaveProfile} className="space-y-6">
-                  {message && <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">{message}</div>}
-                  {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
+                  {message && (
+                    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
+                      {message}
+                    </div>
+                  )}
+                  {error && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                      {error}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <label htmlFor="name" className="text-sm font-medium">Full Name</label>
@@ -149,6 +158,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* ── Preferences ── */}
           <TabsContent value="preferences" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -157,8 +167,16 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSaveProfile} className="space-y-6">
-                  {message && <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">{message}</div>}
-                  {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
+                  {message && (
+                    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
+                      {message}
+                    </div>
+                  )}
+                  {error && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                      {error}
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <label htmlFor="theme" className="text-sm font-medium">Theme</label>
@@ -207,17 +225,27 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          {/* ── WhatsApp ── */}
           <TabsContent value="whatsapp" className="space-y-4 mt-6">
-            <WhatsAppQRDisplay />
+            {/* QR display — already admin-gated inside the component */}
+            {isAdmin && <WhatsAppQRDisplay />}
 
             <Card>
               <CardHeader>
                 <CardTitle>WhatsApp Reminder Configuration</CardTitle>
-                <CardDescription>Set up WhatsApp number and reminder preferences</CardDescription>
+                <CardDescription>Set up your WhatsApp number and reminder preferences</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {message && <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">{message}</div>}
-                {error && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
+                {message && (
+                  <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
+                    {message}
+                  </div>
+                )}
+                {error && (
+                  <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+                    {error}
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label htmlFor="whatsappNumber" className="text-sm font-medium">
@@ -227,8 +255,8 @@ export default function SettingsPage() {
                     id="whatsappNumber"
                     name="whatsappNumber"
                     placeholder="Example: 919440667351 (India +91)"
-                    value={formData.whatsappNumber}                  
-                    onChange={handleChange}                          
+                    value={formData.whatsappNumber}
+                    onChange={handleChange}
                   />
                   <p className="text-xs text-muted-foreground">
                     Format: Country code + phone number (no spaces or hyphens)
@@ -256,19 +284,23 @@ export default function SettingsPage() {
                   {loading ? 'Updating...' : 'Update WhatsApp Settings'}
                 </Button>
 
-                <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-sm">
-                  <p className="font-semibold mb-2">How it works:</p>
-                  <ol className="list-decimal list-inside space-y-1 text-blue-700 dark:text-blue-300">
-                    <li>Scan the QR code above with WhatsApp</li>
-                    <li>Enter your WhatsApp number above and save</li>
-                    <li>Reminders will be sent automatically at your scheduled time</li>
-                    <li>Weekly reports sent every Sunday evening</li>
-                  </ol>
-                </div>
+                {/* Admin-only: How it works */}
+                {isAdmin && (
+                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-sm">
+                    <p className="font-semibold mb-2">How it works:</p>
+                    <ol className="list-decimal list-inside space-y-1 text-blue-700 dark:text-blue-300">
+                      <li>Scan the QR code above with WhatsApp</li>
+                      <li>Enter your WhatsApp number above and save</li>
+                      <li>Reminders will be sent automatically at your scheduled time</li>
+                      <li>Weekly reports sent every Sunday evening</li>
+                    </ol>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ── About ── */}
           <TabsContent value="about" className="space-y-4 mt-6">
             <Card>
               <CardHeader>

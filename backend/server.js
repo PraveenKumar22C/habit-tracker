@@ -27,11 +27,24 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+
+    const isAllowed = allowedOrigins.some(
+      (allowed) => origin === allowed || origin === allowed?.replace(/\/$/, '')
+    );
+
+    if (isAllowed) return callback(null, true);
+
+    console.error(`[CORS] Blocked request from origin: ${origin}`);
+    console.error(`[CORS] Allowed origins: ${allowedOrigins.join(', ')}`);
     callback(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 
 app.use(express.json());
 app.use(passport.initialize());
@@ -72,7 +85,7 @@ passport.deserializeUser(async (id, done) => {
 // ── MongoDB ───────────────────────────────────────────────────────────────────
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/habit-tracker', {
   serverSelectionTimeoutMS: 10000,
-  family: 4, // Force IPv4 — fixes SRV DNS issues on Render free tier
+  family: 4,
 })
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
@@ -86,7 +99,11 @@ app.use('/api/whatsapp', whatsappRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    allowedOrigins,
+  });
 });
 
 // ── Error handling ────────────────────────────────────────────────────────────
@@ -98,6 +115,7 @@ app.use((err, req, res, next) => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ Allowed CORS origins: ${allowedOrigins.join(', ')}`);
   reminderScheduler.start();
 });
 
