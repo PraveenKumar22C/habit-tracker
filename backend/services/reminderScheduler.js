@@ -19,9 +19,9 @@ class ReminderScheduler {
         console.log('[ReminderScheduler] Bot will continue to work when WhatsApp connects');
       }
 
-      // ── Run once every hour (at the top of the hour) ─────────────────────
-      this.reminderJob = cron.schedule('0 * * * *', async () => {
-        console.log('[ReminderScheduler] Hourly reminder check running...');
+      // ── Check reminders every 5 minutes ──────────────────────────────────
+      this.reminderJob = cron.schedule('*/5 * * * *', async () => {
+        console.log('[ReminderScheduler] 5-min reminder check running...');
         try {
           await habitReminderService.checkAndSendReminders();
         } catch (error) {
@@ -40,8 +40,8 @@ class ReminderScheduler {
       });
 
       console.log('[ReminderScheduler] ✅ Scheduler started');
-      console.log('[ReminderScheduler]    Reminder check : every hour on the hour (UTC)');
-      console.log('[ReminderScheduler]    2-hour window  : late sends caught within +2 hrs');
+      console.log('[ReminderScheduler]    Reminder check : every 5 minutes');
+      console.log('[ReminderScheduler]    Send window    : ±10 minutes of scheduled time');
       console.log('[ReminderScheduler]    Weekly reports : Sunday 9 PM IST (15:30 UTC)');
     } catch (error) {
       console.error('[ReminderScheduler] Failed to start scheduler:', error);

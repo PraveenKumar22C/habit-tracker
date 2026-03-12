@@ -35,6 +35,8 @@ function timeToMinutes(timeStr) {
   return h * 60 + m;
 }
 
+const SEND_WINDOW_MINUTES = 60;
+
 class HabitReminderService {
   async checkAndSendReminders() {
     try {
@@ -47,7 +49,7 @@ class HabitReminderService {
       const nowMinutes = hours * 60 + minutes;
 
       console.log(
-        `[ReminderService] Hourly check | IST ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')} (${nowMinutes} min since midnight) | date: ${dateKey}`
+        `[ReminderService] Check | IST ${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')} (${nowMinutes} min) | date: ${dateKey}`
       );
 
       const users = await User.find({
@@ -76,8 +78,8 @@ class HabitReminderService {
       const scheduledMinutes = timeToMinutes(reminderTime);
       const elapsed = nowMinutes - scheduledMinutes;
 
-      // ── 2-hour window: [0, 120] minutes after scheduled time ─────────────
-      if (elapsed < 0 || elapsed > 120) return;
+      // ── 10-minute window: [0, 10] minutes after scheduled time ───────────
+      if (elapsed < 0 || elapsed > SEND_WINDOW_MINUTES) return;
 
       // ── Already sent (or skipped) today? ──────────────────────────────────
       const alreadyLogged = await ReminderLog.findOne({
@@ -100,7 +102,6 @@ class HabitReminderService {
       });
 
       if (completedToday) {
-        // Record a skip so we don't check again
         await ReminderLog.create({
           habitId: habit._id,
           userId: user._id,
