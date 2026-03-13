@@ -1,14 +1,4 @@
-/**
- * keepAlive.js
- *
- * Pings the server's own /api/health endpoint every 14 minutes.
- * Render free tier sleeps after 15 minutes of inactivity — this
- * prevents that, keeping the WhatsApp client and cron scheduler alive.
- *
- * Usage: import and call keepAlive.start() once in server.js
- */
-
-const PING_INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
+const PING_INTERVAL_MS = 14 * 60 * 1000;
 
 class KeepAliveService {
   constructor() {

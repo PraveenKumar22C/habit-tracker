@@ -24,7 +24,6 @@ async function sendSessionExpiredEmail() {
     const { default: User } = await import('../models/User.js');
     const admins = await User.find({ isAdmin: true }).select('email').lean();
     if (!admins.length) return;
-
     const to = admins.map(u => u.email).join(', ');
     const settingsUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?tab=whatsapp`;
     const transporter = nodemailer.createTransport({
@@ -48,21 +47,22 @@ async function sendSessionExpiredEmail() {
 }
 class WhatsAppClient {
   constructor() {
-    this.client         = null;
-    this.isReady        = false;
-    this.qrCode         = null;
-    this.qrDataUri      = null;
-    this.qrReceivedAt   = null;
+    this.client            = null;
+    this.isReady           = false;
+    this.qrCode            = null;
+    this.qrDataUri         = null;
+    this.qrReceivedAt      = null;
     this.reconnectAttempts = 0;
-    this.baseDelay      = 10000;
-    this.isInitializing = false;
-    this._sessionWiped  = false;
-    this._stopped       = false;
+    this.baseDelay         = 15000;
+    this.isInitializing    = false;
+    this._sessionWiped     = false;
+    this._stopped          = false;
+    this._reconnectTimer   = null;
   }
 
   async initialize() {
     if (this.isInitializing) {
-      console.log('[WhatsApp] Already initializing — skipping.');
+      console.log('[WhatsApp] Already initializing — skipping duplicate call.');
       return;
     }
     this.isInitializing = true;
@@ -73,8 +73,10 @@ class WhatsAppClient {
       console.log(`[WhatsApp] Session key used by RemoteAuth: "${SESSION_KEY}"`);
 
       if (this.client) {
+        console.log('[WhatsApp] Destroying previous client instance...');
         try { await this.client.destroy(); } catch {}
         this.client = null;
+        await new Promise(r => setTimeout(r, 3000));
       }
 
       const store = new MongoStore({ verbose: true });
@@ -83,7 +85,7 @@ class WhatsAppClient {
         authStrategy: new RemoteAuth({
           clientId: 'habit-tracker-bot',
           store,
-          backupSyncIntervalMs: 60000,
+          backupSyncIntervalMs: 10000,
           dataPath: tempDir,
         }),
         puppeteer: {
@@ -130,22 +132,23 @@ class WhatsAppClient {
       });
 
       this.client.on('authenticated', () => {
-        console.log('[WhatsApp] Authenticated — waiting for remote_session_saved event...');
+        console.log('[WhatsApp] Authenticated ✓ — waiting for session to save to MongoDB...');
+        console.log('[WhatsApp] DO NOT close the server — session saves in ~10 seconds.');
         this._sessionWiped = false;
         this._clearQR();
       });
 
       this.client.on('remote_session_saved', () => {
-        console.log(`[WhatsApp] ✅ Session saved to MongoDB (key: ${SESSION_KEY})`);
-        console.log('[WhatsApp] Server will auto-connect on next restart — no re-scan needed.');
+        console.log(`[WhatsApp] ✅ Session saved to MongoDB! Key: ${SESSION_KEY}`);
+        console.log('[WhatsApp] Next restart will auto-connect — no re-scan needed.');
       });
 
       this.client.on('ready', () => {
         console.log('[WhatsApp] Client ready!');
-        this.isReady        = true;
-        this._clearQR();
+        this.isReady           = true;
         this.reconnectAttempts = 0;
-        this.isInitializing = false;
+        this.isInitializing    = false;
+        this._clearQR();
       });
 
       this.client.on('auth_failure', async (msg) => {
@@ -154,7 +157,6 @@ class WhatsAppClient {
         this.isInitializing = false;
         if (!this._sessionWiped) {
           this._sessionWiped = true;
-          console.log('[WhatsApp] Wiping DB session after auth failure.');
           await this._wipeDBSession();
           await sendSessionExpiredEmail();
         }
@@ -167,7 +169,6 @@ class WhatsAppClient {
         this.isInitializing = false;
         if ((reason === 'LOGOUT' || reason === 'CONFLICT') && !this._sessionWiped) {
           this._sessionWiped = true;
-          console.log('[WhatsApp] Logout/conflict — wiping DB session.');
           await this._wipeDBSession();
           await sendSessionExpiredEmail();
         }
@@ -201,13 +202,20 @@ class WhatsAppClient {
 
   _scheduleReconnect() {
     if (this._stopped) return;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     const delay = Math.min(
       this.baseDelay * Math.pow(1.5, this.reconnectAttempts),
       120000
     );
     this.reconnectAttempts++;
     console.log(`[WhatsApp] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
-    setTimeout(() => this.initialize(), delay);
+    this._reconnectTimer = setTimeout(() => {
+      this._reconnectTimer = null;
+      this.initialize();
+    }, delay);
   }
 
   isConnected() { return this.isReady; }
@@ -220,8 +228,7 @@ class WhatsAppClient {
 
   getQRExpiresIn() {
     if (!this.qrReceivedAt) return 0;
-    const remaining = (10 * 60 * 1000) - (Date.now() - this.qrReceivedAt);
-    return Math.max(0, Math.round(remaining / 1000));
+    return Math.max(0, Math.round(((10 * 60 * 1000) - (Date.now() - this.qrReceivedAt)) / 1000));
   }
 
   getQRCode() { return this.qrCode; }
@@ -239,6 +246,10 @@ class WhatsAppClient {
 
   async close() {
     this._stopped = true;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     try {
       if (this.client) {
         await this.client.destroy();
