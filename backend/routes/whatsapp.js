@@ -27,22 +27,17 @@ router.get('/qr', authMiddleware, adminOnly, async (req, res) => {
       return res.json({ connected: true, qrCode: null });
     }
 
-    const dataUri   = whatsappClient.getQRCodeDataUri();
-    const expiresIn = whatsappClient.getQRExpiresIn();
+    const dataUri = whatsappClient.getQRCodeDataUri();
+    const expiresIn = whatsappClient.getQRExpiresIn(); 
 
     if (!dataUri) {
-      return res.json({
-        connected: false,
-        qrCode: null,
-        expiresIn: 0,
-        message: 'QR not ready yet — generating, retry in a few seconds',
-      });
+      return res.json({ connected: false, qrCode: null, expiresIn: 0, message: 'QR not ready yet' });
     }
 
-    return res.json({ connected: false, qrCode: dataUri, expiresIn });
+    res.json({ connected: false, qrCode: dataUri, expiresIn });
   } catch (error) {
-    console.error('[WhatsApp Route] Error:', error);
-    res.status(500).json({ error: 'Failed to get QR code' });
+    console.error('Error generating QR image:', error);
+    res.status(500).json({ error: 'Failed to generate QR code' });
   }
 });
 

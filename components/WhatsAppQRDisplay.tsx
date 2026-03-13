@@ -27,9 +27,11 @@ export function WhatsAppQRDisplay() {
   const [expiresIn, setExpiresIn]     = useState(0);
   const [waitingForQR, setWaiting]    = useState(false);
 
-  const connectedRef = useRef(false);
-  const pollRef      = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const connectedRef    = useRef(false);
+  const pollRef         = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef    = useRef<NodeJS.Timeout | null>(null);
+  const lastQrRef       = useRef<string | null>(null);
+  const qrReceivedAtRef = useRef<number | null>(null);
 
   const isAdmin = (user as any)?.isAdmin === true;
 
@@ -53,6 +55,7 @@ export function WhatsAppQRDisplay() {
         setIsConnected(true);
         connectedRef.current = true;
         setQrCode(null);
+        lastQrRef.current = null;
         if (countdownRef.current) clearInterval(countdownRef.current);
         if (pollRef.current)      clearInterval(pollRef.current);
         setLoading(false);
@@ -63,13 +66,33 @@ export function WhatsAppQRDisplay() {
       connectedRef.current = false;
 
       if (res.qrCode) {
-        setQrCode(prev => prev !== res.qrCode ? res.qrCode : prev);
         setWaiting(false);
-        if (res.expiresIn > QR_WINDOW_SECONDS - 10) {
-          startCountdown(res.expiresIn);
+
+        const isNewQR = res.qrCode !== lastQrRef.current;
+
+        if (isNewQR) {
+          lastQrRef.current = res.qrCode;
+          qrReceivedAtRef.current = Date.now();
+          setQrCode(res.qrCode);
+          startCountdown(res.expiresIn ?? QR_WINDOW_SECONDS);
+        } else {
+          setQrCode(res.qrCode);
+          setExpiresIn(prev => {
+            if (prev > 0) return prev; 
+            if (qrReceivedAtRef.current) {
+              const elapsed = Math.floor((Date.now() - qrReceivedAtRef.current) / 1000);
+              const remaining = Math.max(0, (res.expiresIn ?? QR_WINDOW_SECONDS) - elapsed);
+              if (remaining > 0) {
+                startCountdown(remaining);
+                return remaining;
+              }
+            }
+            return 0;
+          });
         }
       } else {
         setQrCode(null);
+        lastQrRef.current = null;
         setWaiting(true);
       }
     } catch (err: any) {
@@ -158,7 +181,6 @@ export function WhatsAppQRDisplay() {
         {qrCode && expiresIn > 0 ? (
           <>
             <div className="bg-white p-4 rounded-xl flex flex-col items-center gap-3 shadow-sm">
-              {/* QR image — key on qrCode so React re-renders only when image changes */}
               <img
                 key={qrCode}
                 src={qrCode}
@@ -168,7 +190,6 @@ export function WhatsAppQRDisplay() {
                 className="rounded-md"
               />
 
-              {/* Countdown bar */}
               <div className="w-full space-y-1">
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>Valid for</span>
