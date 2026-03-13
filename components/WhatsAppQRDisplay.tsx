@@ -9,7 +9,7 @@ import { CheckCircle2, XCircle, Loader2, MessageCircle, Copy, Check } from 'luci
 import { useAuthStore } from '@/lib/store';
 
 const SANDBOX_NUMBER = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER || '+14155238886';
-const SANDBOX_CODE   = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE   || 'join <your-sandbox-word>';
+const SANDBOX_CODE   = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE   || 'join scientific-lungs';
 
 export function WhatsAppQRDisplay() {
   const { user } = useAuthStore();

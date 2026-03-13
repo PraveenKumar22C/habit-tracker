@@ -11,10 +11,8 @@ class ReminderScheduler {
   async start() {
     console.log('[ReminderScheduler] Starting...');
 
-    // Initialize Twilio client (just validates credentials, no browser)
     await whatsappClient.initialize();
 
-    // Check & send reminders every 5 minutes
     this.reminderJob = cron.schedule('*/5 * * * *', async () => {
       try {
         await habitReminderService.checkAndSendReminders();
@@ -23,7 +21,6 @@ class ReminderScheduler {
       }
     });
 
-    // Weekly reports every Sunday at 9 PM IST (15:30 UTC)
     this.weeklyReportJob = cron.schedule('30 15 * * 0', async () => {
       console.log('[ReminderScheduler] Running weekly reports...');
       try {
