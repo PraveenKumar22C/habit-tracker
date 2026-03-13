@@ -9,6 +9,7 @@ import QRCode from 'qrcode';
 
 import { MongoStore } from './mongoStore.js';
 import { sessionExpiredEmailTemplate } from './emailTemplate.js';
+import { getChromePath } from '../scripts/get-chrome-path.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,7 +46,6 @@ async function sendSessionExpiredEmail() {
     console.error('[WhatsApp] Failed to send alert email:', err.message);
   }
 }
-
 class WhatsAppClient {
   constructor() {
     this.client         = null;
@@ -83,13 +83,13 @@ class WhatsAppClient {
         authStrategy: new RemoteAuth({
           clientId: 'habit-tracker-bot',
           store,
-          backupSyncIntervalMs: 60000, 
+          backupSyncIntervalMs: 60000,
           dataPath: tempDir,
         }),
         puppeteer: {
           headless: true,
           protocolTimeout: 600000,
-          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+          executablePath: getChromePath(),
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
