@@ -9,6 +9,15 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle2, Loader2, ShieldX } from 'lucide-react';
 
+const QR_WINDOW_SECONDS = 600;
+
+function formatSeconds(s: number) {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s`;
+  return `${sec}s`;
+}
+
 export function WhatsAppQRDisplay() {
   const { user } = useAuthStore();
   const [qrCode, setQrCode]           = useState<string | null>(null);
@@ -18,9 +27,9 @@ export function WhatsAppQRDisplay() {
   const [expiresIn, setExpiresIn]     = useState(0);
   const [waitingForQR, setWaiting]    = useState(false);
 
-  const connectedRef   = useRef(false);
-  const pollRef        = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef   = useRef<NodeJS.Timeout | null>(null);
+  const connectedRef = useRef(false);
+  const pollRef      = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
   const isAdmin = (user as any)?.isAdmin === true;
 
@@ -54,9 +63,11 @@ export function WhatsAppQRDisplay() {
       connectedRef.current = false;
 
       if (res.qrCode) {
-        setQrCode(res.qrCode);
+        setQrCode(prev => prev !== res.qrCode ? res.qrCode : prev);
         setWaiting(false);
-        startCountdown(res.expiresIn ?? 55);
+        if (res.expiresIn > QR_WINDOW_SECONDS - 10) {
+          startCountdown(res.expiresIn);
+        }
       } else {
         setQrCode(null);
         setWaiting(true);
@@ -71,13 +82,12 @@ export function WhatsAppQRDisplay() {
   useEffect(() => {
     if (!isAdmin) return;
     doPoll();
-    // Poll every 3s so we always have the freshest QR before it expires
     pollRef.current = setInterval(() => {
       if (connectedRef.current) { clearInterval(pollRef.current!); return; }
       doPoll();
-    }, 3000);
+    }, 5000);
     return () => {
-      if (pollRef.current)    clearInterval(pollRef.current);
+      if (pollRef.current)      clearInterval(pollRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
   }, [isAdmin, doPoll]);
@@ -128,6 +138,8 @@ export function WhatsAppQRDisplay() {
     );
   }
 
+  const isExpiringSoon = expiresIn > 0 && expiresIn <= 30;
+
   return (
     <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
       <CardHeader>
@@ -146,6 +158,7 @@ export function WhatsAppQRDisplay() {
         {qrCode && expiresIn > 0 ? (
           <>
             <div className="bg-white p-4 rounded-xl flex flex-col items-center gap-3 shadow-sm">
+              {/* QR image — key on qrCode so React re-renders only when image changes */}
               <img
                 key={qrCode}
                 src={qrCode}
@@ -154,20 +167,21 @@ export function WhatsAppQRDisplay() {
                 height={300}
                 className="rounded-md"
               />
+
               {/* Countdown bar */}
               <div className="w-full space-y-1">
                 <div className="flex justify-between text-xs text-gray-500">
                   <span>Valid for</span>
-                  <span className={`font-medium ${expiresIn <= 10 ? 'text-red-500 font-bold' : ''}`}>
-                    {expiresIn}s
+                  <span className={`font-medium ${isExpiringSoon ? 'text-red-500 font-bold' : ''}`}>
+                    {formatSeconds(expiresIn)}
                   </span>
                 </div>
                 <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all duration-1000 ${
-                      expiresIn <= 10 ? 'bg-red-500' : 'bg-green-500'
+                      isExpiringSoon ? 'bg-red-500' : 'bg-green-500'
                     }`}
-                    style={{ width: `${(expiresIn / 55) * 100}%` }}
+                    style={{ width: `${(expiresIn / QR_WINDOW_SECONDS) * 100}%` }}
                   />
                 </div>
               </div>
@@ -194,7 +208,7 @@ export function WhatsAppQRDisplay() {
                 ? 'Waiting for QR code from server…'
                 : 'QR expired — new one arriving shortly…'}
             </p>
-            <p className="text-xs text-muted-foreground">Refreshing automatically every 3 seconds</p>
+            <p className="text-xs text-muted-foreground">Refreshing automatically every 5 seconds</p>
           </div>
         )}
       </CardContent>

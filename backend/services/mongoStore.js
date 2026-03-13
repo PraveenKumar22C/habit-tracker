@@ -1,15 +1,4 @@
-import mongoose from 'mongoose';
-
-const whatsappSessionSchema = new mongoose.Schema({
-  sessionName: { type: String, required: true, unique: true },
-  data:        { type: String, required: true }, 
-  updatedAt:   { type: Date,   default: Date.now },
-});
-
-const WhatsAppSession =
-  mongoose.models.WhatsAppSession ||
-  mongoose.model('WhatsAppSession', whatsappSessionSchema);
-
+import WhatsAppSession from '../models/WhatsappSession';
 export class MongoStore {
   constructor(opts = {}) {
     this.verbose = opts.verbose ?? false;
@@ -44,7 +33,7 @@ export class MongoStore {
     const { writeFile } = await import('fs/promises');
     const buf = Buffer.from(doc.data, 'base64');
     await writeFile(destPath, buf);
-    this._log(`extract(${session}) — wrote ${buf.length} bytes`);
+    this._log(`extract(${session}) — wrote ${buf.length} bytes to disk`);
   }
 
   async delete({ session }) {

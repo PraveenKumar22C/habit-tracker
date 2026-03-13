@@ -15,6 +15,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tempDir = path.join(__dirname, '../.wwebjs_auth');
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
+const SESSION_KEY = 'RemoteAuth-habit-tracker-bot';
+
 async function sendSessionExpiredEmail() {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
@@ -24,12 +26,10 @@ async function sendSessionExpiredEmail() {
 
     const to = admins.map(u => u.email).join(', ');
     const settingsUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?tab=whatsapp`;
-
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
-
     const logoPath = path.join(__dirname, '../public/apple-icon.png');
     await transporter.sendMail({
       from: `"HabitTrack Bot" <${process.env.EMAIL_USER}>`,
@@ -45,18 +45,19 @@ async function sendSessionExpiredEmail() {
     console.error('[WhatsApp] Failed to send alert email:', err.message);
   }
 }
+
 class WhatsAppClient {
   constructor() {
-    this.client        = null;
-    this.isReady       = false;
-    this.qrCode        = null;   
-    this.qrDataUri     = null;  
-    this.qrReceivedAt  = null;  
+    this.client         = null;
+    this.isReady        = false;
+    this.qrCode         = null;
+    this.qrDataUri      = null;
+    this.qrReceivedAt   = null;
     this.reconnectAttempts = 0;
-    this.baseDelay     = 10000;
+    this.baseDelay      = 10000;
     this.isInitializing = false;
-    this._sessionWiped = false;
-    this._stopped      = false;
+    this._sessionWiped  = false;
+    this._stopped       = false;
   }
 
   async initialize() {
@@ -69,6 +70,7 @@ class WhatsAppClient {
 
     try {
       console.log('[WhatsApp] Initializing with RemoteAuth (MongoDB session)...');
+      console.log(`[WhatsApp] Session key used by RemoteAuth: "${SESSION_KEY}"`);
 
       if (this.client) {
         try { await this.client.destroy(); } catch {}
@@ -81,12 +83,12 @@ class WhatsAppClient {
         authStrategy: new RemoteAuth({
           clientId: 'habit-tracker-bot',
           store,
-          backupSyncIntervalMs: 300000,
+          backupSyncIntervalMs: 60000, 
           dataPath: tempDir,
         }),
         puppeteer: {
           headless: true,
-          protocolTimeout: 600000,  
+          protocolTimeout: 600000,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -119,7 +121,7 @@ class WhatsAppClient {
             margin: 2,
             color: { dark: '#000000', light: '#ffffff' },
           });
-          console.log('[WhatsApp] QR PNG ready — scan within 55s');
+          console.log('[WhatsApp] QR PNG ready — you have 10 minutes to scan');
         } catch (err) {
           console.error('[WhatsApp] QR render failed:', err.message);
           this.qrDataUri = null;
@@ -127,21 +129,22 @@ class WhatsAppClient {
       });
 
       this.client.on('authenticated', () => {
-        console.log('[WhatsApp] Authenticated — session will be saved to MongoDB.');
+        console.log('[WhatsApp] Authenticated — waiting for remote_session_saved event...');
         this._sessionWiped = false;
         this._clearQR();
       });
 
       this.client.on('remote_session_saved', () => {
-        console.log('[WhatsApp] Session saved to MongoDB — auto-restores on next restart.');
+        console.log(`[WhatsApp] ✅ Session saved to MongoDB (key: ${SESSION_KEY})`);
+        console.log('[WhatsApp] Server will auto-connect on next restart — no re-scan needed.');
       });
 
       this.client.on('ready', () => {
         console.log('[WhatsApp] Client ready!');
-        this.isReady = true;
+        this.isReady        = true;
         this._clearQR();
         this.reconnectAttempts = 0;
-        this.isInitializing    = false;
+        this.isInitializing = false;
       });
 
       this.client.on('auth_failure', async (msg) => {
@@ -163,7 +166,7 @@ class WhatsAppClient {
         this.isInitializing = false;
         if ((reason === 'LOGOUT' || reason === 'CONFLICT') && !this._sessionWiped) {
           this._sessionWiped = true;
-          console.log('[WhatsApp] User logout/conflict — wiping DB session.');
+          console.log('[WhatsApp] Logout/conflict — wiping DB session.');
           await this._wipeDBSession();
           await sendSessionExpiredEmail();
         }
@@ -187,8 +190,8 @@ class WhatsAppClient {
 
   async _wipeDBSession() {
     try {
-      const store = new MongoStore();
-      await store.delete({ session: 'habit-tracker-bot' });
+      const store = new MongoStore({ verbose: true });
+      await store.delete({ session: SESSION_KEY });
       console.log('[WhatsApp] DB session wiped.');
     } catch (err) {
       console.error('[WhatsApp] Failed to wipe DB session:', err.message);
@@ -210,13 +213,14 @@ class WhatsAppClient {
 
   getQRCodeDataUri() {
     if (!this.qrDataUri || !this.qrReceivedAt) return null;
-    if (Date.now() - this.qrReceivedAt > 55000) return null;
+    if (Date.now() - this.qrReceivedAt > 10 * 60 * 1000) return null;
     return this.qrDataUri;
   }
 
   getQRExpiresIn() {
     if (!this.qrReceivedAt) return 0;
-    return Math.max(0, Math.round(55 - (Date.now() - this.qrReceivedAt) / 1000));
+    const remaining = (10 * 60 * 1000) - (Date.now() - this.qrReceivedAt);
+    return Math.max(0, Math.round(remaining / 1000));
   }
 
   getQRCode() { return this.qrCode; }
