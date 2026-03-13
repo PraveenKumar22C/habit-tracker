@@ -16,7 +16,21 @@ export class MongoStore {
   }
 
   async save({ session, data }) {
-    const base64 = Buffer.isBuffer(data) ? data.toString('base64') : data;
+    if (data === undefined || data === null) {
+      this._log(`save(${session}) — skipping, data is ${data}`);
+      return;
+    }
+
+    let base64;
+    if (Buffer.isBuffer(data)) {
+      base64 = data.toString('base64');
+    } else if (typeof data === 'string') {
+      base64 = data;
+    } else {
+      this._log(`save(${session}) — unexpected data type: ${typeof data}`);
+      base64 = Buffer.from(JSON.stringify(data)).toString('base64');
+    }
+
     await WhatsAppSession.findOneAndUpdate(
       { sessionName: session },
       { sessionName: session, data: base64, updatedAt: new Date() },
