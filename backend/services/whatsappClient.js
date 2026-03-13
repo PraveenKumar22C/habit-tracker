@@ -85,7 +85,7 @@ class WhatsAppClient {
         authStrategy: new RemoteAuth({
           clientId: 'habit-tracker-bot',
           store,
-          backupSyncIntervalMs: 10000,
+          backupSyncIntervalMs: 60000,
           dataPath: tempDir,
         }),
         puppeteer: {
