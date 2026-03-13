@@ -279,18 +279,6 @@ export default function SettingsPage() {
                 <Button onClick={handleSaveProfile as any} disabled={loading}>
                   {loading ? 'Updating...' : 'Update WhatsApp Settings'}
                 </Button>
-
-                {isAdmin && (
-                  <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-sm">
-                    <p className="font-semibold mb-2">How it works:</p>
-                    <ol className="list-decimal list-inside space-y-1 text-blue-700 dark:text-blue-300">
-                      <li>Scan the QR code above with WhatsApp</li>
-                      <li>Enter your WhatsApp number above and save</li>
-                      <li>Reminders will be sent automatically at your scheduled time</li>
-                      <li>Weekly reports sent every Sunday evening</li>
-                    </ol>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </TabsContent>
