@@ -25,26 +25,21 @@ export function DeleteModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onCancel}
       />
 
-      {/* Modal */}
       <div className="relative bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-        {/* Icon */}
         <div className="flex items-center justify-center w-14 h-14 rounded-full bg-destructive/10 mx-auto">
           <AlertTriangle className="w-7 h-7 text-destructive" />
         </div>
 
-        {/* Content */}
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-3 pt-2">
           <Button
             variant="outline"

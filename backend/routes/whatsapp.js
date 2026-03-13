@@ -19,20 +19,12 @@ const adminOnly = async (req, res, next) => {
   }
 };
 
-/**
- * GET /api/whatsapp/status
- * Public — just returns connected boolean (no QR, no admin needed).
- * Frontend uses this to show "WhatsApp active" badge.
- */
+// GET /api/whatsapp/status
 router.get('/status', (req, res) => {
   res.json({ connected: whatsappClient.isConnected() });
 });
 
-/**
- * GET /api/whatsapp/qr
- * Admin only — returns QR as a base64 PNG data URI so the frontend
- * can display it with a plain <img> tag. No qrcode.react needed.
- */
+// GET /api/whatsapp/qr
 router.get('/qr', authMiddleware, adminOnly, async (req, res) => {
   try {
     const rawQr = whatsappClient.getQRCode();
@@ -45,7 +37,6 @@ router.get('/qr', authMiddleware, adminOnly, async (req, res) => {
       return res.json({ connected: false, qrCode: null, message: 'QR not ready yet, retry in a few seconds' });
     }
 
-    // Convert the raw WhatsApp QR string → PNG data URI
     const dataUri = await QRCode.toDataURL(rawQr, {
       errorCorrectionLevel: 'M',
       width: 256,
@@ -59,10 +50,7 @@ router.get('/qr', authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-/**
- * POST /api/whatsapp/test-message
- * Admin only — sends a test message to the admin's own WhatsApp number.
- */
+// POST /api/whatsapp/test-message
 router.post('/test-message', authMiddleware, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
@@ -84,10 +72,7 @@ router.post('/test-message', authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-/**
- * POST /api/whatsapp/send-custom
- * Admin only.
- */
+// POST /api/whatsapp/send-custom
 router.post('/send-custom', authMiddleware, adminOnly, async (req, res) => {
   try {
     const { number, message } = req.body;

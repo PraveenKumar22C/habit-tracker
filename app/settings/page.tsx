@@ -108,7 +108,6 @@ export default function SettingsPage() {
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
 
-          {/* ── Profile ── */}
           <TabsContent value="profile" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -158,7 +157,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* ── Preferences ── */}
           <TabsContent value="preferences" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -225,9 +223,7 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* ── WhatsApp ── */}
           <TabsContent value="whatsapp" className="space-y-4 mt-6">
-            {/* QR display — already admin-gated inside the component */}
             {isAdmin && <WhatsAppQRDisplay />}
 
             <Card>
@@ -284,7 +280,6 @@ export default function SettingsPage() {
                   {loading ? 'Updating...' : 'Update WhatsApp Settings'}
                 </Button>
 
-                {/* Admin-only: How it works */}
                 {isAdmin && (
                   <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-sm">
                     <p className="font-semibold mb-2">How it works:</p>
@@ -300,7 +295,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* ── About ── */}
           <TabsContent value="about" className="space-y-4 mt-6">
             <Card>
               <CardHeader>

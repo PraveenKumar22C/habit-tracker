@@ -153,7 +153,6 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* ── Stat cards ── */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {dataLoading
             ? Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
@@ -180,7 +179,6 @@ export default function DashboardPage() {
               ))}
         </div>
 
-        {/* ── Action buttons ── */}
         <div className="flex gap-3 flex-wrap pt-4">
           <Link href="/habits/new">
             <Button className="bg-linear-to-r from-primary to-secondary text-white font-semibold hover:shadow-lg hover:shadow-primary/30 transition-all">
@@ -205,7 +203,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* ── Today's habits ── */}
         <div className="space-y-5">
           <div className="flex justify-between items-center pt-4">
             <h2 className="text-3xl font-bold bg-linear-to-r from-primary to-secondary bg-clip-text text-transparent">

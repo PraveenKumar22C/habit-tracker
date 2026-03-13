@@ -6,28 +6,48 @@ import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Helper function to calculate streak
+function parseToUTCMidnight(dateInput) {
+  if (!dateInput) {
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const now = new Date();
+    const istNow = new Date(now.getTime() + IST_OFFSET);
+    return new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate()));
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    const [y, m, d] = dateInput.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d));
+  }
+
+  const raw = new Date(dateInput);
+  const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+  const istDate = new Date(raw.getTime() + IST_OFFSET);
+  return new Date(Date.UTC(istDate.getUTCFullYear(), istDate.getUTCMonth(), istDate.getUTCDate()));
+}
+
 const calculateStreak = async (habitId, userId) => {
-  const logs = await HabitLog.find({ habitId, userId }).sort({ date: -1 });
-  
+  const logs = await HabitLog.find({ habitId, userId, completed: true }).sort({ date: -1 });
+
   let streak = 0;
-  let today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
+
+  const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+  const nowIST = new Date(Date.now() + IST_OFFSET);
+  const todayUTC = new Date(Date.UTC(nowIST.getUTCFullYear(), nowIST.getUTCMonth(), nowIST.getUTCDate()));
+
   for (let i = 0; i < logs.length; i++) {
     const logDate = new Date(logs[i].date);
-    logDate.setHours(0, 0, 0, 0);
-    
-    const expectedDate = new Date(today);
-    expectedDate.setDate(expectedDate.getDate() - i);
-    
-    if (logDate.getTime() === expectedDate.getTime() && logs[i].completed) {
+    logDate.setUTCHours(0, 0, 0, 0);
+
+    const expectedDate = new Date(todayUTC);
+    expectedDate.setUTCDate(expectedDate.getUTCDate() - i);
+
+    if (logDate.getTime() === expectedDate.getTime()) {
       streak++;
     } else {
       break;
     }
   }
-  
+
   return streak;
 };
 
@@ -45,11 +65,11 @@ router.get('/', authMiddleware, async (req, res) => {
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { name, description, category, color, frequency, target, reminder } = req.body;
-    
+
     if (!name) {
       return res.status(400).json({ error: 'Habit name is required' });
     }
-    
+
     const habit = new Habit({
       userId: req.userId,
       name,
@@ -60,13 +80,13 @@ router.post('/', authMiddleware, async (req, res) => {
       target,
       reminder,
     });
-    
+
     await habit.save();
-    
+
     await User.findByIdAndUpdate(req.userId, {
       $inc: { 'stats.totalHabits': 1 },
     });
-    
+
     res.status(201).json(habit);
   } catch (error) {
     console.error('Create habit error:', error);
@@ -78,11 +98,11 @@ router.post('/', authMiddleware, async (req, res) => {
 router.get('/:id', authMiddleware, async (req, res) => {
   try {
     const habit = await Habit.findOne({ _id: req.params.id, userId: req.userId });
-    
+
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
-    
+
     res.json(habit);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch habit' });
@@ -93,7 +113,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const { name, description, category, color, frequency, target, reminder, isActive } = req.body;
-    
+
     const habit = await Habit.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
       {
@@ -109,11 +129,11 @@ router.put('/:id', authMiddleware, async (req, res) => {
       },
       { new: true }
     );
-    
+
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
-    
+
     res.json(habit);
   } catch (error) {
     res.status(500).json({ error: 'Failed to update habit' });
@@ -124,17 +144,17 @@ router.put('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     const habit = await Habit.findOneAndDelete({ _id: req.params.id, userId: req.userId });
-    
+
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
-    
+
     await HabitLog.deleteMany({ habitId: req.params.id });
-    
+
     await User.findByIdAndUpdate(req.userId, {
       $inc: { 'stats.totalHabits': -1 },
     });
-    
+
     res.json({ message: 'Habit deleted' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete habit' });
@@ -152,11 +172,20 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Habit not found' });
     }
 
-    const logDate = new Date(date || new Date());
-    logDate.setHours(0, 0, 0, 0);
+    const logDate = parseToUTCMidnight(date);
 
-    let log = await HabitLog.findOne({ habitId, userId: req.userId, date: logDate });
+    const existingLog = await HabitLog.findOne({
+      habitId,
+      userId: req.userId,
+      date: logDate,
+    });
 
+    if (existingLog && existingLog.completed) {
+      const streak = await calculateStreak(habitId, req.userId);
+      return res.json({ log: existingLog, milestone: null, alreadyCompleted: true, streak });
+    }
+
+    let log = existingLog;
     if (!log) {
       log = new HabitLog({
         habitId,
@@ -164,7 +193,7 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
         date: logDate,
         completed,
         value: value || 1,
-        notes,
+        notes: notes || '',
       });
     } else {
       log.completed = completed;
@@ -187,8 +216,11 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
 
     if (completed) {
       await Habit.findByIdAndUpdate(habitId, {
-        $set: { 'stats.currentStreak': streak },
-        $inc: { 'stats.totalCompletions': 1 },  
+        $set: {
+          'stats.currentStreak': streak,
+          'stats.longestStreak': Math.max(streak, habit.stats?.longestStreak || 0),
+        },
+        $inc: { 'stats.totalCompletions': 1 },
       });
     }
 
@@ -203,18 +235,18 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
 router.get('/:id/logs', authMiddleware, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-    
+
     const query = {
       habitId: req.params.id,
       userId: req.userId,
     };
-    
+
     if (startDate || endDate) {
       query.date = {};
       if (startDate) query.date.$gte = new Date(startDate);
       if (endDate) query.date.$lte = new Date(endDate);
     }
-    
+
     const logs = await HabitLog.find(query).sort({ date: -1 });
     res.json(logs);
   } catch (error) {
@@ -229,15 +261,15 @@ router.get('/:id/stats', authMiddleware, async (req, res) => {
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
-    
+
     const logs = await HabitLog.find({ habitId: req.params.id, userId: req.userId });
-    
+
     const completedDays = logs.filter(log => log.completed).length;
     const totalDays = logs.length;
     const completionRate = totalDays > 0 ? (completedDays / totalDays) * 100 : 0;
-    
+
     const streak = await calculateStreak(req.params.id, req.userId);
-    
+
     res.json({
       totalCompletions: completedDays,
       completionRate: Math.round(completionRate),

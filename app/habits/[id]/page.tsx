@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import Layout from '@/components/Layout';
 import { Flame, TrendingUp, Calendar, Edit2, Trash2, Zap, X, Check } from 'lucide-react';
-import { isToday } from '@/lib/dateUtils';
+import { toLocalDateStr, isToday } from '@/lib/dateUtils';
 import { PageLoader } from '@/components/Pageloader';
 import { DeleteModal } from '@/components/Deletemodal';
 
@@ -83,14 +83,18 @@ export default function HabitDetailPage() {
     setCheckInError(null);
 
     try {
-      const now = new Date();
-      const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const todayStr = toLocalDateStr(new Date());
 
       const response = await api.habits.log(habitId, {
-        date: localMidnight.toISOString(),
+        date: todayStr,
         completed: true,
         value: 1,
       });
+
+      if (response.alreadyCompleted) {
+        setCheckInError('Already checked in today!');
+        return;
+      }
 
       setCelebrating(true);
       if (response.milestone) setMilestone(response.milestone);
@@ -167,7 +171,10 @@ export default function HabitDetailPage() {
     );
   }
 
-  const todayLog = logs.find(log => isToday(log.date) && log.completed);
+  const todayStr = toLocalDateStr(new Date());
+  const todayLog = logs.find(
+    log => toLocalDateStr(new Date(log.date)) === todayStr && log.completed
+  );
 
   const completedThisWeek = logs.filter(log => {
     if (!log.completed) return false;
@@ -384,6 +391,7 @@ export default function HabitDetailPage() {
                               month: 'short',
                               day: 'numeric',
                               year: 'numeric',
+                              timeZone: 'UTC', 
                             })}
                           </p>
                           {log.notes && <p className="text-sm text-muted-foreground">{log.notes}</p>}
@@ -475,13 +483,9 @@ function CalendarView({ logs }: { logs: any[] }) {
 
   const days: any[] = [];
   for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    const log = logs.find(l => {
-      const ld = new Date(l.date);
-      const ldStr = `${ld.getFullYear()}-${String(ld.getMonth() + 1).padStart(2, '0')}-${String(ld.getDate()).padStart(2, '0')}`;
-      return ldStr === dateStr;
-    });
-    days.push({ date: new Date(d), completed: log?.completed || false });
+    const dateStr = toLocalDateStr(new Date(d));
+    const log = logs.find(l => toLocalDateStr(new Date(l.date)) === dateStr);
+    days.push({ date: new Date(d), completed: log?.completed || false, dateStr });
   }
 
   return (

@@ -14,7 +14,6 @@ const reminderLogSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: true,
-    // Store as YYYY-MM-DD for daily tracking
   },
   reminderSent: {
     type: Boolean,
@@ -48,7 +47,6 @@ const reminderLogSchema = new mongoose.Schema({
   },
 });
 
-// Index for efficient querying
 reminderLogSchema.index({ habitId: 1, date: 1 });
 reminderLogSchema.index({ userId: 1, date: 1 });
 reminderLogSchema.index({ reminderSent: 1, date: 1 });

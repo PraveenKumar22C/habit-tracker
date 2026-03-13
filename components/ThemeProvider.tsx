@@ -7,8 +7,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="dark"   // ← was "system", now always dark by default
-      enableSystem={false}  // ← disable system override so user preference wins
+      defaultTheme="dark"  
+      enableSystem={false} 
     >
       {children}
     </NextThemesProvider>

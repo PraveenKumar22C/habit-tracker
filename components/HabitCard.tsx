@@ -8,19 +8,10 @@ import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useHabitStore } from '@/lib/store';
 import { Check, Flame } from 'lucide-react';
+import { toLocalDateStr, isToday } from '@/lib/dateUtils';
 
 interface HabitCardProps {
   habit: Habit;
-}
-
-function isToday(date: Date | string): boolean {
-  const d = new Date(date);
-  const now = new Date();
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
 }
 
 export default function HabitCard({ habit }: HabitCardProps) {
@@ -28,12 +19,14 @@ export default function HabitCard({ habit }: HabitCardProps) {
   const { updateHabit } = useHabitStore();
   const [checkedToday, setCheckedToday] = useState(false);
 
-  // ✅ Fetch today's log status on mount from the API
   useEffect(() => {
     const checkTodayStatus = async () => {
       try {
         const logs = await api.habits.getLogs(habit._id);
-        const alreadyDone = logs.some((l: any) => isToday(l.date) && l.completed);
+        const todayStr = toLocalDateStr(new Date());
+        const alreadyDone = logs.some(
+          (l: any) => toLocalDateStr(new Date(l.date)) === todayStr && l.completed
+        );
         setCheckedToday(alreadyDone);
       } catch (error) {
         console.error('Failed to fetch logs:', error);
@@ -46,11 +39,10 @@ export default function HabitCard({ habit }: HabitCardProps) {
   const handleCheck = async () => {
     setIsChecking(true);
     try {
-      const now = new Date();
-      const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const todayStr = toLocalDateStr(new Date());
 
       await api.habits.log(habit._id, {
-        date: localMidnight.toISOString(),
+        date: todayStr,
         completed: true,
         value: 1,
       });
@@ -88,7 +80,6 @@ export default function HabitCard({ habit }: HabitCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Streak */}
         <div className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-orange-950/30 dark:to-amber-950/30 rounded-lg">
           <div className="flex items-center gap-2">
             <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
@@ -103,7 +94,6 @@ export default function HabitCard({ habit }: HabitCardProps) {
           </span>
         </div>
 
-        {/* Completion Rate */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-sm font-semibold text-foreground">Completion Rate</span>
@@ -126,7 +116,6 @@ export default function HabitCard({ habit }: HabitCardProps) {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 pt-3">
           <Button
             className={`flex-1 font-semibold transition-all ${

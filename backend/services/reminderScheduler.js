@@ -19,7 +19,6 @@ class ReminderScheduler {
         console.log('[ReminderScheduler] Bot will continue to work when WhatsApp connects');
       }
 
-      // ── Check reminders every 5 minutes ──────────────────────────────────
       this.reminderJob = cron.schedule('*/5 * * * *', async () => {
         console.log('[ReminderScheduler] 5-min reminder check running...');
         try {
@@ -29,7 +28,6 @@ class ReminderScheduler {
         }
       });
 
-      // ── Weekly reports: Sunday 9 PM IST = Sunday 15:30 UTC ───────────────
       this.weeklyReportJob = cron.schedule('30 15 * * 0', async () => {
         console.log('[ReminderScheduler] Running weekly reports...');
         try {

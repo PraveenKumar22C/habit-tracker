@@ -24,7 +24,6 @@ function getISTNow() {
   };
 }
 
-/** Convert "HH:MM" to total minutes since midnight */
 function timeToMinutes(timeStr) {
   const [h, m] = timeStr.split(':').map(Number);
   return h * 60 + m;
@@ -75,15 +74,15 @@ class HabitReminderService {
 
       if (elapsed < 0 || elapsed > SEND_WINDOW_MINUTES) return;
 
-      const alreadyLogged = await ReminderLog.findOne({
+      const alreadySent = await ReminderLog.findOne({
         habitId: habit._id,
         userId: user._id,
         date: todayIST,
-        status: { $in: ['sent', 'failed'] },
+        status: 'sent',
       });
 
-      if (alreadyLogged) {
-        console.log(`[ReminderService] Already handled "${habit.name}" today (status: ${alreadyLogged.status}), skipping`);
+      if (alreadySent) {
+        console.log(`[ReminderService] Already sent reminder for "${habit.name}" today, skipping`);
         return;
       }
 
@@ -95,15 +94,7 @@ class HabitReminderService {
       });
 
       if (completedToday) {
-        await ReminderLog.create({
-          habitId: habit._id,
-          userId: user._id,
-          date: todayIST,
-          reminderSent: true,
-          status: 'sent',
-          sentAt: new Date(),
-          message: 'Habit already completed today — reminder skipped',
-        });
+        console.log(`[ReminderService] "${habit.name}" already completed today, skipping reminder`);
         return;
       }
 
@@ -135,16 +126,7 @@ class HabitReminderService {
 
       console.log(`[ReminderService] ✅ Sent to ${user.whatsappNumber} for "${habit.name}"`);
     } catch (error) {
-      console.error(`[ReminderService] ❌ Failed for "${habit.name}":`, error.message);
-
-      await ReminderLog.create({
-        habitId: habit._id,
-        userId: user._id,
-        date: todayIST,
-        reminderSent: false,
-        status: 'failed',
-        error: error.message,
-      }).catch(() => {});
+      console.error(`[ReminderService] ❌ Failed for "${habit.name}" (will retry): ${error.message}`);
     }
   }
 

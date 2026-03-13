@@ -13,8 +13,6 @@ const sessionsDir = path.join(__dirname, '../sessions');
 if (!fs.existsSync(sessionsDir)) {
   fs.mkdirSync(sessionsDir, { recursive: true });
 }
-
-// ── Email alert ─────────────────────────────────────────────────────────────
 async function sendSessionExpiredEmail() {
   try {
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -68,8 +66,6 @@ async function sendSessionExpiredEmail() {
     console.error('[WhatsApp] Failed to send alert email:', err.message);
   }
 }
-
-// ── WhatsApp Client ─────────────────────────────────────────────────────────
 class WhatsAppClient {
   constructor() {
     this.client = null;
@@ -78,9 +74,9 @@ class WhatsAppClient {
     this.qrTimestamp = null;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 999;
-    this.reconnectDelay = 5000;
+    this.reconnectDelay = 10000; 
     this.isInitializing = false;
-    this._authenticatedOnce = false;
+    this._sessionWiped = false;
   }
 
   async initialize() {
@@ -105,7 +101,7 @@ class WhatsAppClient {
         }),
         puppeteer: {
           headless: true,
-          protocolTimeout: 300000,
+          protocolTimeout: 600000,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -117,8 +113,11 @@ class WhatsAppClient {
             '--disable-gpu',
             '--disable-extensions',
             '--disable-software-rasterizer',
-            '--memory-pressure-off',      
+            '--memory-pressure-off',
             '--disable-background-networking',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
           ],
         },
       });
@@ -130,12 +129,8 @@ class WhatsAppClient {
       });
 
       this.client.on('authenticated', () => {
-        if (this._authenticatedOnce) {
-          console.log('[WhatsApp] Re-authenticated. New session saved.');
-        } else {
-          console.log('[WhatsApp] Authenticated! Session saved.');
-          this._authenticatedOnce = true;
-        }
+        console.log('[WhatsApp] Authenticated! Session saved.');
+        this._sessionWiped = false;
         this.qrCode = null;
         this.qrTimestamp = null;
       });
@@ -146,7 +141,7 @@ class WhatsAppClient {
         this.qrCode = null;
         this.qrTimestamp = null;
         this.reconnectAttempts = 0;
-        this.reconnectDelay = 5000;
+        this.reconnectDelay = 10000;
         this.isInitializing = false;
       });
 
@@ -154,9 +149,18 @@ class WhatsAppClient {
         console.error('[WhatsApp] Auth failure:', msg);
         this.isReady = false;
         this.isInitializing = false;
-        this._wipeSession();
-        await sendSessionExpiredEmail();
-        setTimeout(() => this.initialize(), 3000);
+
+        if (!this._sessionWiped) {
+          console.log('[WhatsApp] Auth failure — wiping session and sending alert.');
+          this._sessionWiped = true;
+          this._wipeSession();
+          await sendSessionExpiredEmail();
+        }
+
+        const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts), 120000);
+        this.reconnectAttempts++;
+        console.log(`[WhatsApp] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
+        setTimeout(() => this.initialize(), delay);
       });
 
       this.client.on('disconnected', async (reason) => {
@@ -167,15 +171,20 @@ class WhatsAppClient {
         this.isInitializing = false;
 
         if (reason === 'LOGOUT' || reason === 'CONFLICT') {
-          console.log('[WhatsApp] Session expired. Wiping session folder...');
-          this._wipeSession();
-          await sendSessionExpiredEmail();
+          console.log('[WhatsApp] Session expired (LOGOUT/CONFLICT). Wiping session...');
+          if (!this._sessionWiped) {
+            this._sessionWiped = true;
+            this._wipeSession();
+            await sendSessionExpiredEmail();
+          }
+        } else {
+          console.log(`[WhatsApp] Disconnected for reason: ${reason} — NOT wiping session, will reconnect`);
         }
 
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts), 120000);
           this.reconnectAttempts++;
-          const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 60000);
-          console.log(`[WhatsApp] Reconnect attempt ${this.reconnectAttempts} in ${delay / 1000}s...`);
+          console.log(`[WhatsApp] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
           setTimeout(() => this.initialize(), delay);
         }
       });
@@ -185,8 +194,9 @@ class WhatsAppClient {
     } catch (error) {
       console.error('[WhatsApp] Failed to initialize:', error.message);
       this.isInitializing = false;
-      const delay = Math.min(this.reconnectDelay * (this.reconnectAttempts + 1), 60000);
-      console.log(`[WhatsApp] Retrying in ${delay / 1000}s...`);
+      const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts), 120000);
+      this.reconnectAttempts++;
+      console.log(`[WhatsApp] Retrying in ${Math.round(delay / 1000)}s...`);
       setTimeout(() => this.initialize(), delay);
     }
   }
@@ -238,7 +248,7 @@ class WhatsAppClient {
 
     const sendPromise = this.client.sendMessage(chatId, message);
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('sendMessage timed out after 30s')), 30000)
+      setTimeout(() => reject(new Error('sendMessage timed out after 60s')), 60000)
     );
 
     await Promise.race([sendPromise, timeoutPromise]);

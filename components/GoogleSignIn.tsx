@@ -95,7 +95,6 @@ export function GoogleSignIn() {
     document.body.appendChild(script);
   }, [clientId]);
 
-  // Re-render button on window resize for responsiveness
   useEffect(() => {
     const handleResize = () => {
       if (window.google && clientId) {

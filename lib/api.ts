@@ -24,7 +24,6 @@ export const api = {
     return response.json();
   },
 
-  // ⭐ ADD THESE
   get: (endpoint: string) => api.request(endpoint),
 
   post: (endpoint: string, body: any) =>
@@ -44,7 +43,6 @@ export const api = {
       method: 'DELETE',
     }),
 
-  // Auth endpoints
   auth: {
     me: () => api.request('/auth/me'),  
     register: (email: string, password: string, name: string) =>
@@ -74,7 +72,6 @@ export const api = {
       }),
   },
 
-  // Habit endpoints
   habits: {
     getAll: () => api.request('/habits'),
 
