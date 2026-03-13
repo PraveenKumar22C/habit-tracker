@@ -1,4 +1,4 @@
-import WhatsAppSession from '../models/WhatsappSession';
+import WhatsAppSession from '../models/WhatsappSession.js';
 
 export class MongoStore {
   constructor(opts = {}) {
