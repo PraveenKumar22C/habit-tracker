@@ -1,107 +1,92 @@
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
+const { Client, RemoteAuth } = pkg;
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
+
+import { MongoStore } from './mongoStore.js';
 import { sessionExpiredEmailTemplate } from './emailTemplate.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const sessionsDir = path.join(__dirname, '../sessions');
 
-if (!fs.existsSync(sessionsDir)) {
-  fs.mkdirSync(sessionsDir, { recursive: true });
-}
+const tempDir = path.join(__dirname, '../.wwebjs_auth');
+if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
 async function sendSessionExpiredEmail() {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.warn('[WhatsApp] EMAIL_USER / EMAIL_PASS not set — skipping alert email');
-      return;
-    }
-
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return;
     const { default: User } = await import('../models/User.js');
-    const adminUsers = await User.find({ isAdmin: true }).select('email name').lean();
+    const admins = await User.find({ isAdmin: true }).select('email').lean();
+    if (!admins.length) return;
 
-    if (!adminUsers.length) {
-      console.warn('[WhatsApp] No admin users found in DB — skipping alert email');
-      return;
-    }
-
-    const adminEmails = adminUsers.map(u => u.email);
-    console.log(`[WhatsApp] Sending session-expired alert to: ${adminEmails.join(', ')}`);
-
-    const settingsUrl =
-      `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?tab=whatsapp`;
+    const to = admins.map(u => u.email).join(', ');
+    const settingsUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/settings?tab=whatsapp`;
 
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     });
 
     const logoPath = path.join(__dirname, '../public/apple-icon.png');
-    const logoExists = fs.existsSync(logoPath);
-
     await transporter.sendMail({
       from: `"HabitTrack Bot" <${process.env.EMAIL_USER}>`,
-      to: adminEmails.join(', '),
+      to,
       subject: '⚠️ WhatsApp Session Expired — Re-scan Required',
       html: sessionExpiredEmailTemplate({ settingsUrl }),
-      ...(logoExists && {
-        attachments: [
-          {
-            filename: 'apple-icon.png',
-            path: logoPath,
-            cid: 'habitTrackerLogo',
-          },
-        ],
+      ...(fs.existsSync(logoPath) && {
+        attachments: [{ filename: 'apple-icon.png', path: logoPath, cid: 'habitTrackerLogo' }],
       }),
     });
-
-    console.log(`[WhatsApp] 📧 Alert sent to: ${adminEmails.join(', ')}`);
+    console.log(`[WhatsApp] Alert email sent to: ${to}`);
   } catch (err) {
     console.error('[WhatsApp] Failed to send alert email:', err.message);
   }
 }
 class WhatsAppClient {
   constructor() {
-    this.client = null;
-    this.isReady = false;
-    this.qrCode = null;
-    this.qrTimestamp = null;
+    this.client        = null;
+    this.isReady       = false;
+    this.qrCode        = null;   
+    this.qrDataUri     = null;  
+    this.qrReceivedAt  = null;  
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 999;
-    this.reconnectDelay = 10000; 
+    this.baseDelay     = 10000;
     this.isInitializing = false;
     this._sessionWiped = false;
+    this._stopped      = false;
   }
 
   async initialize() {
     if (this.isInitializing) {
-      console.log('[WhatsApp] Already initializing, skipping...');
+      console.log('[WhatsApp] Already initializing — skipping.');
       return;
     }
     this.isInitializing = true;
+    this._stopped = false;
 
     try {
-      console.log('[WhatsApp] Initializing WhatsApp client...');
+      console.log('[WhatsApp] Initializing with RemoteAuth (MongoDB session)...');
 
       if (this.client) {
         try { await this.client.destroy(); } catch {}
         this.client = null;
       }
 
+      const store = new MongoStore({ verbose: true });
+
       this.client = new Client({
-        authStrategy: new LocalAuth({
+        authStrategy: new RemoteAuth({
           clientId: 'habit-tracker-bot',
-          dataPath: sessionsDir,
+          store,
+          backupSyncIntervalMs: 300000,
+          dataPath: tempDir,
         }),
         puppeteer: {
           headless: true,
-          protocolTimeout: 600000,
+          protocolTimeout: 600000,  
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
@@ -122,162 +107,141 @@ class WhatsAppClient {
         },
       });
 
-      this.client.on('qr', (qr) => {
-        console.log('[WhatsApp] New QR Code received.');
-        this.qrCode = qr;
-        this.qrTimestamp = Date.now();
+      this.client.on('qr', async (qr) => {
+        console.log('[WhatsApp] New QR received — pre-rendering PNG...');
+        this.isReady      = false;
+        this.qrCode       = qr;
+        this.qrReceivedAt = Date.now();
+        try {
+          this.qrDataUri = await QRCode.toDataURL(qr, {
+            errorCorrectionLevel: 'M',
+            width: 300,
+            margin: 2,
+            color: { dark: '#000000', light: '#ffffff' },
+          });
+          console.log('[WhatsApp] QR PNG ready — scan within 55s');
+        } catch (err) {
+          console.error('[WhatsApp] QR render failed:', err.message);
+          this.qrDataUri = null;
+        }
       });
 
       this.client.on('authenticated', () => {
-        console.log('[WhatsApp] Authenticated! Session saved.');
+        console.log('[WhatsApp] Authenticated — session will be saved to MongoDB.');
         this._sessionWiped = false;
-        this.qrCode = null;
-        this.qrTimestamp = null;
+        this._clearQR();
+      });
+
+      this.client.on('remote_session_saved', () => {
+        console.log('[WhatsApp] Session saved to MongoDB — auto-restores on next restart.');
       });
 
       this.client.on('ready', () => {
-        console.log('[WhatsApp] Client is ready! ✅');
+        console.log('[WhatsApp] Client ready!');
         this.isReady = true;
-        this.qrCode = null;
-        this.qrTimestamp = null;
+        this._clearQR();
         this.reconnectAttempts = 0;
-        this.reconnectDelay = 10000;
-        this.isInitializing = false;
+        this.isInitializing    = false;
       });
 
       this.client.on('auth_failure', async (msg) => {
         console.error('[WhatsApp] Auth failure:', msg);
-        this.isReady = false;
+        this.isReady        = false;
         this.isInitializing = false;
-
         if (!this._sessionWiped) {
-          console.log('[WhatsApp] Auth failure — wiping session and sending alert.');
           this._sessionWiped = true;
-          this._wipeSession();
+          console.log('[WhatsApp] Wiping DB session after auth failure.');
+          await this._wipeDBSession();
           await sendSessionExpiredEmail();
         }
-
-        const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts), 120000);
-        this.reconnectAttempts++;
-        console.log(`[WhatsApp] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
-        setTimeout(() => this.initialize(), delay);
+        this._scheduleReconnect();
       });
 
       this.client.on('disconnected', async (reason) => {
         console.log('[WhatsApp] Disconnected:', reason);
-        this.isReady = false;
-        this.qrCode = null;
-        this.qrTimestamp = null;
+        this.isReady        = false;
         this.isInitializing = false;
-
-        if (reason === 'LOGOUT' || reason === 'CONFLICT') {
-          console.log('[WhatsApp] Session expired (LOGOUT/CONFLICT). Wiping session...');
-          if (!this._sessionWiped) {
-            this._sessionWiped = true;
-            this._wipeSession();
-            await sendSessionExpiredEmail();
-          }
-        } else {
-          console.log(`[WhatsApp] Disconnected for reason: ${reason} — NOT wiping session, will reconnect`);
+        if ((reason === 'LOGOUT' || reason === 'CONFLICT') && !this._sessionWiped) {
+          this._sessionWiped = true;
+          console.log('[WhatsApp] User logout/conflict — wiping DB session.');
+          await this._wipeDBSession();
+          await sendSessionExpiredEmail();
         }
-
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts), 120000);
-          this.reconnectAttempts++;
-          console.log(`[WhatsApp] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
-          setTimeout(() => this.initialize(), delay);
-        }
+        this._scheduleReconnect();
       });
 
       await this.client.initialize();
 
     } catch (error) {
-      console.error('[WhatsApp] Failed to initialize:', error.message);
+      console.error('[WhatsApp] Initialization error:', error.message);
       this.isInitializing = false;
-      const delay = Math.min(this.reconnectDelay * Math.pow(1.5, this.reconnectAttempts), 120000);
-      this.reconnectAttempts++;
-      console.log(`[WhatsApp] Retrying in ${Math.round(delay / 1000)}s...`);
-      setTimeout(() => this.initialize(), delay);
+      this._scheduleReconnect();
     }
   }
 
-  _wipeSession() {
+  _clearQR() {
+    this.qrCode       = null;
+    this.qrDataUri    = null;
+    this.qrReceivedAt = null;
+  }
+
+  async _wipeDBSession() {
     try {
-      const sessionPath = path.join(sessionsDir, 'session-habit-tracker-bot');
-      if (fs.existsSync(sessionPath)) {
-        fs.rmSync(sessionPath, { recursive: true, force: true });
-        console.log('[WhatsApp] Session directory wiped.');
-      }
+      const store = new MongoStore();
+      await store.delete({ session: 'habit-tracker-bot' });
+      console.log('[WhatsApp] DB session wiped.');
     } catch (err) {
-      console.error('[WhatsApp] Failed to wipe session:', err.message);
+      console.error('[WhatsApp] Failed to wipe DB session:', err.message);
     }
   }
 
-  async getQRCodeImage() {
-    if (!this.qrCode) return null;
-
-    const age = Date.now() - (this.qrTimestamp || 0);
-    if (age > 25000) {
-      console.log('[WhatsApp] QR code expired (age:', Math.round(age / 1000), 's), waiting for new one...');
-      return null;
-    }
-
-    try {
-      const dataUri = await QRCode.toDataURL(this.qrCode, {
-        width: 256,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff',
-        },
-      });
-      return dataUri;
-    } catch (err) {
-      console.error('[WhatsApp] Failed to generate QR image:', err.message);
-      return null;
-    }
+  _scheduleReconnect() {
+    if (this._stopped) return;
+    const delay = Math.min(
+      this.baseDelay * Math.pow(1.5, this.reconnectAttempts),
+      120000
+    );
+    this.reconnectAttempts++;
+    console.log(`[WhatsApp] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${this.reconnectAttempts})...`);
+    setTimeout(() => this.initialize(), delay);
   }
 
-  getRawQR()    { return this.qrCode; }
-  getQRCode()   { return this.qrCode; }
   isConnected() { return this.isReady; }
+
+  getQRCodeDataUri() {
+    if (!this.qrDataUri || !this.qrReceivedAt) return null;
+    if (Date.now() - this.qrReceivedAt > 55000) return null;
+    return this.qrDataUri;
+  }
+
+  getQRExpiresIn() {
+    if (!this.qrReceivedAt) return 0;
+    return Math.max(0, Math.round(55 - (Date.now() - this.qrReceivedAt) / 1000));
+  }
+
+  getQRCode() { return this.qrCode; }
 
   async sendMessage(number, message) {
     if (!this.isReady) throw new Error('WhatsApp client is not ready');
     const chatId = `${number}@c.us`;
-
-    const sendPromise = this.client.sendMessage(chatId, message);
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('sendMessage timed out after 60s')), 60000)
+    const timeout = new Promise((_, rej) =>
+      setTimeout(() => rej(new Error('sendMessage timed out after 60s')), 60000)
     );
-
-    await Promise.race([sendPromise, timeoutPromise]);
+    await Promise.race([this.client.sendMessage(chatId, message), timeout]);
     console.log(`[WhatsApp] Message sent to ${number}`);
     return { success: true };
   }
 
-  async sendBulkMessages(recipients) {
-    const results = { successful: [], failed: [] };
-    for (const { number, message } of recipients) {
-      try {
-        await this.sendMessage(number, message);
-        results.successful.push({ number });
-      } catch (error) {
-        results.failed.push({ number, error: error.message });
-      }
-    }
-    return results;
-  }
-
   async close() {
+    this._stopped = true;
     try {
       if (this.client) {
         await this.client.destroy();
         this.isReady = false;
         console.log('[WhatsApp] Client closed.');
       }
-    } catch (error) {
-      console.error('[WhatsApp] Error closing client:', error);
+    } catch (err) {
+      console.error('[WhatsApp] Error closing:', err.message);
     }
   }
 }

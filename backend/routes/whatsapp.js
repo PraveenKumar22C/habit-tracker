@@ -1,92 +1,74 @@
 import express from 'express';
-import QRCode from 'qrcode';
 import whatsappClient from '../services/whatsappClient.js';
 import { authMiddleware } from '../middleware/auth.js';
 import User from '../models/User.js';
 
 const router = express.Router();
 
-// Middleware: only allow admin users
 const adminOnly = async (req, res, next) => {
   try {
     const user = await User.findById(req.userId);
-    if (!user || !user.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
+    if (!user || !user.isAdmin) return res.status(403).json({ error: 'Admin access required' });
     next();
   } catch {
     return res.status(403).json({ error: 'Admin access required' });
   }
 };
 
-// GET /api/whatsapp/status
+// Public — connected boolean (used by frontend badge)
 router.get('/status', (req, res) => {
   res.json({ connected: whatsappClient.isConnected() });
 });
 
-// GET /api/whatsapp/qr
+// GET /api/whatsapp/qr  (admin only)
 router.get('/qr', authMiddleware, adminOnly, async (req, res) => {
   try {
-    const rawQr = whatsappClient.getQRCode();
-
     if (whatsappClient.isConnected()) {
       return res.json({ connected: true, qrCode: null });
     }
 
-    if (!rawQr) {
-      return res.json({ connected: false, qrCode: null, message: 'QR not ready yet, retry in a few seconds' });
+    const dataUri   = whatsappClient.getQRCodeDataUri();
+    const expiresIn = whatsappClient.getQRExpiresIn();
+
+    if (!dataUri) {
+      return res.json({
+        connected: false,
+        qrCode: null,
+        expiresIn: 0,
+        message: 'QR not ready yet — generating, retry in a few seconds',
+      });
     }
 
-    const dataUri = await QRCode.toDataURL(rawQr, {
-      errorCorrectionLevel: 'M',
-      width: 256,
-      margin: 2,
-    });
-
-    res.json({ connected: false, qrCode: dataUri });
+    return res.json({ connected: false, qrCode: dataUri, expiresIn });
   } catch (error) {
-    console.error('Error generating QR image:', error);
-    res.status(500).json({ error: 'Failed to generate QR code' });
+    console.error('[WhatsApp Route] Error:', error);
+    res.status(500).json({ error: 'Failed to get QR code' });
   }
 });
 
-// POST /api/whatsapp/test-message
+// Admin — send a test message to self
 router.post('/test-message', authMiddleware, adminOnly, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-
-    if (!user.whatsappNumber) {
-      return res.status(400).json({ error: 'WhatsApp number not set in your profile' });
-    }
-    if (!whatsappClient.isConnected()) {
-      return res.status(503).json({ error: 'WhatsApp client is not connected' });
-    }
-
-    const message = `Hello! This is a test message from Habit Tracker. WhatsApp notifications are working correctly!`;
+    if (!user.whatsappNumber) return res.status(400).json({ error: 'WhatsApp number not set in your profile' });
+    if (!whatsappClient.isConnected()) return res.status(503).json({ error: 'WhatsApp client is not connected' });
+    const message = `Hello! This is a test message from Habit Tracker. WhatsApp notifications are working correctly! ✅`;
     await whatsappClient.sendMessage(user.whatsappNumber, message);
-
     res.json({ success: true, message: 'Test message sent', number: user.whatsappNumber });
   } catch (error) {
-    console.error('Error sending test message:', error);
     res.status(500).json({ error: error.message || 'Failed to send test message' });
   }
 });
 
-// POST /api/whatsapp/send-custom
+// Admin — send a custom message to any number
 router.post('/send-custom', authMiddleware, adminOnly, async (req, res) => {
   try {
     const { number, message } = req.body;
-    if (!number || !message) {
-      return res.status(400).json({ error: 'number and message are required' });
-    }
-    if (!whatsappClient.isConnected()) {
-      return res.status(503).json({ error: 'WhatsApp client is not connected' });
-    }
-
+    if (!number || !message) return res.status(400).json({ error: 'number and message are required' });
+    if (!whatsappClient.isConnected()) return res.status(503).json({ error: 'WhatsApp client is not connected' });
     await whatsappClient.sendMessage(number, message);
-    res.json({ success: true, message: 'Message sent', number });
+    res.json({ success: true, number });
   } catch (error) {
-    console.error('Error sending custom message:', error);
     res.status(500).json({ error: error.message || 'Failed to send message' });
   }
 });

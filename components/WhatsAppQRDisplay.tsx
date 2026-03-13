@@ -1,61 +1,86 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuthStore } from '@/lib/store';
 import { api } from '@/lib/api';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Loader2, ShieldX, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, ShieldX } from 'lucide-react';
 
 export function WhatsAppQRDisplay() {
   const { user } = useAuthStore();
-  const [qrCode, setQrCode] = useState<string | null>(null);
+  const [qrCode, setQrCode]           = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [expiresIn, setExpiresIn]     = useState(0);
+  const [waitingForQR, setWaiting]    = useState(false);
 
-  const isConnectedRef = useRef(false);
+  const connectedRef   = useRef(false);
+  const pollRef        = useRef<NodeJS.Timeout | null>(null);
+  const countdownRef   = useRef<NodeJS.Timeout | null>(null);
 
   const isAdmin = (user as any)?.isAdmin === true;
 
-  useEffect(() => {
-    if (!isAdmin) return;
+  const startCountdown = useCallback((seconds: number) => {
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setExpiresIn(seconds);
+    countdownRef.current = setInterval(() => {
+      setExpiresIn(prev => {
+        if (prev <= 1) { clearInterval(countdownRef.current!); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  }, []);
 
-    const poll = async () => {
-      try {
-        const res = await api.get('/whatsapp/qr');
+  const doPoll = useCallback(async () => {
+    try {
+      const res = await api.get('/whatsapp/qr');
+      setError(null);
 
-        const connected: boolean = res.connected;
-        const qr: string | null = res.qrCode ?? null;
-
-        setIsConnected(connected);
-        isConnectedRef.current = connected;
-        setQrCode(qr);
-        setError(null);
-        setLastUpdated(new Date());
-
-        return connected;
-      } catch (err: any) {
-        setError(err?.error || 'Failed to fetch WhatsApp status');
-        return false;
-      } finally {
+      if (res.connected) {
+        setIsConnected(true);
+        connectedRef.current = true;
+        setQrCode(null);
+        if (countdownRef.current) clearInterval(countdownRef.current);
+        if (pollRef.current)      clearInterval(pollRef.current);
         setLoading(false);
-      }
-    };
-
-    poll();
-
-    const interval = setInterval(async () => {
-      if (isConnectedRef.current) {
-        clearInterval(interval);
         return;
       }
-      await poll();
-    }, 5000);
 
-    return () => clearInterval(interval);
-  }, [isAdmin]);
+      setIsConnected(false);
+      connectedRef.current = false;
+
+      if (res.qrCode) {
+        setQrCode(res.qrCode);
+        setWaiting(false);
+        startCountdown(res.expiresIn ?? 55);
+      } else {
+        setQrCode(null);
+        setWaiting(true);
+      }
+    } catch (err: any) {
+      setError(err?.error || 'Failed to fetch WhatsApp status');
+    } finally {
+      setLoading(false);
+    }
+  }, [startCountdown]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    doPoll();
+    // Poll every 3s so we always have the freshest QR before it expires
+    pollRef.current = setInterval(() => {
+      if (connectedRef.current) { clearInterval(pollRef.current!); return; }
+      doPoll();
+    }, 3000);
+    return () => {
+      if (pollRef.current)    clearInterval(pollRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [isAdmin, doPoll]);
 
   if (!isAdmin) {
     return (
@@ -75,7 +100,7 @@ export function WhatsAppQRDisplay() {
           <CardTitle>WhatsApp Authentication</CardTitle>
           <CardDescription>Checking connection status…</CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center py-10">
+        <CardContent className="flex justify-center py-10">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </CardContent>
       </Card>
@@ -95,10 +120,7 @@ export function WhatsAppQRDisplay() {
           </div>
         </CardHeader>
         <CardContent>
-          <Badge
-            variant="secondary"
-            className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-          >
+          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
             Status: Active
           </Badge>
         </CardContent>
@@ -110,7 +132,7 @@ export function WhatsAppQRDisplay() {
     <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
       <CardHeader>
         <CardTitle>WhatsApp Setup Required</CardTitle>
-        <CardDescription>Scan the QR code below to link the bot account</CardDescription>
+        <CardDescription>Scan the QR code with WhatsApp to link the bot</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
 
@@ -121,45 +143,58 @@ export function WhatsAppQRDisplay() {
           </div>
         )}
 
-        {qrCode ? (
+        {qrCode && expiresIn > 0 ? (
           <>
-            <div className="bg-white p-4 rounded-xl flex justify-center shadow-sm">
+            <div className="bg-white p-4 rounded-xl flex flex-col items-center gap-3 shadow-sm">
               <img
                 key={qrCode}
                 src={qrCode}
                 alt="WhatsApp QR Code"
-                width={256}
-                height={256}
+                width={300}
+                height={300}
                 className="rounded-md"
               />
+              {/* Countdown bar */}
+              <div className="w-full space-y-1">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Valid for</span>
+                  <span className={`font-medium ${expiresIn <= 10 ? 'text-red-500 font-bold' : ''}`}>
+                    {expiresIn}s
+                  </span>
+                </div>
+                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ${
+                      expiresIn <= 10 ? 'bg-red-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${(expiresIn / 55) * 100}%` }}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-              <p className="font-semibold mb-2">How to link:</p>
+              <p className="font-semibold mb-2">How to scan:</p>
               <ol className="list-decimal list-inside space-y-1">
-                <li>Open WhatsApp on the bot phone</li>
+                <li>Open WhatsApp on your phone</li>
                 <li>Go to <strong>Settings → Linked Devices</strong></li>
                 <li>Tap <strong>"Link a Device"</strong></li>
-                <li>Point the camera at this QR code</li>
+                <li>Scan this QR code</li>
               </ol>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <RefreshCw className="w-3 h-3" />
-              <span>
-                QR refreshes every 5 seconds to stay valid.
-                {lastUpdated && (
-                  <> Last updated: {lastUpdated.toLocaleTimeString()}</>
-                )}
-              </span>
+              <p className="mt-2 text-xs opacity-75">
+                Once linked, you won't need to scan again — even after server restarts.
+              </p>
             </div>
           </>
         ) : (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-600 mx-auto mb-3" />
+          <div className="text-center py-8 space-y-3">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-600 mx-auto" />
             <p className="text-sm text-amber-700 dark:text-amber-300">
-              Waiting for QR code from server…
+              {waitingForQR
+                ? 'Waiting for QR code from server…'
+                : 'QR expired — new one arriving shortly…'}
             </p>
+            <p className="text-xs text-muted-foreground">Refreshing automatically every 3 seconds</p>
           </div>
         )}
       </CardContent>
