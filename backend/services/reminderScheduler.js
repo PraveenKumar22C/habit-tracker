@@ -4,17 +4,17 @@ import whatsappClient from './whatsappClient.js';
 
 class ReminderScheduler {
   constructor() {
-    this.reminderJob = null;
+    this.reminderJob    = null;
     this.weeklyReportJob = null;
   }
 
   async start() {
-    console.log('[ReminderScheduler] Starting scheduler...');
+    console.log('[ReminderScheduler] Starting...');
 
-    whatsappClient.initialize().catch(err => {
-      console.warn('[ReminderScheduler] WhatsApp init error (will retry):', err.message);
-    });
+    // Initialize Twilio client (just validates credentials, no browser)
+    await whatsappClient.initialize();
 
+    // Check & send reminders every 5 minutes
     this.reminderJob = cron.schedule('*/5 * * * *', async () => {
       try {
         await habitReminderService.checkAndSendReminders();
@@ -23,6 +23,7 @@ class ReminderScheduler {
       }
     });
 
+    // Weekly reports every Sunday at 9 PM IST (15:30 UTC)
     this.weeklyReportJob = cron.schedule('30 15 * * 0', async () => {
       console.log('[ReminderScheduler] Running weekly reports...');
       try {
@@ -34,22 +35,17 @@ class ReminderScheduler {
 
     console.log('[ReminderScheduler] Started:');
     console.log('   Reminder check : every 5 minutes');
-    console.log('   Send window    : 60 minutes after scheduled time');
     console.log('   Weekly reports : Sunday 9 PM IST');
   }
 
   stop() {
-    if (this.reminderJob)     { this.reminderJob.stop();     }
-    if (this.weeklyReportJob) { this.weeklyReportJob.stop(); }
-    whatsappClient.close();
+    if (this.reminderJob)     this.reminderJob.stop();
+    if (this.weeklyReportJob) this.weeklyReportJob.stop();
     console.log('[ReminderScheduler] Stopped.');
   }
 
   getStatus() {
-    return {
-      whatsappConnected: whatsappClient.isConnected(),
-      qrAvailable: !!whatsappClient.getQRCodeDataUri(),
-    };
+    return { whatsappConnected: whatsappClient.isConnected() };
   }
 }
 

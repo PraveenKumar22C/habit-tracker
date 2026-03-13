@@ -1,138 +1,53 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useAuthStore } from '@/lib/store';
+import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
-import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, CheckCircle2, Loader2, ShieldX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, XCircle, Loader2, MessageCircle, Copy, Check } from 'lucide-react';
+import { useAuthStore } from '@/lib/store';
 
-const QR_WINDOW_SECONDS = 600;
-
-function formatSeconds(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  if (m > 0) return `${m}m ${String(sec).padStart(2, '0')}s`;
-  return `${sec}s`;
-}
+const SANDBOX_NUMBER = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER || '+14155238886';
+const SANDBOX_CODE   = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE   || 'join <your-sandbox-word>';
 
 export function WhatsAppQRDisplay() {
   const { user } = useAuthStore();
-  const [qrCode, setQrCode]           = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-  const [expiresIn, setExpiresIn]     = useState(0);
-  const [waitingForQR, setWaiting]    = useState(false);
-
-  const connectedRef    = useRef(false);
-  const pollRef         = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef    = useRef<NodeJS.Timeout | null>(null);
-  const lastQrRef       = useRef<string | null>(null);
-  const qrReceivedAtRef = useRef<number | null>(null);
+  const [connected, setConnected] = useState<boolean | null>(null);
+  const [copied, setCopied]       = useState(false);
+  const [testing, setTesting]     = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const isAdmin = (user as any)?.isAdmin === true;
 
-  const startCountdown = useCallback((seconds: number) => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    setExpiresIn(seconds);
-    countdownRef.current = setInterval(() => {
-      setExpiresIn(prev => {
-        if (prev <= 1) { clearInterval(countdownRef.current!); return 0; }
-        return prev - 1;
-      });
-    }, 1000);
+  useEffect(() => {
+    api.get('/whatsapp/status')
+      .then(d => setConnected(d.connected))
+      .catch(() => setConnected(false));
   }, []);
 
-  const doPoll = useCallback(async () => {
+  const copyCode = async () => {
+    await navigator.clipboard.writeText(SANDBOX_CODE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const sendTest = async () => {
+    setTesting(true);
+    setTestResult(null);
     try {
-      const res = await api.get('/whatsapp/qr');
-      setError(null);
-
-      if (res.connected) {
-        setIsConnected(true);
-        connectedRef.current = true;
-        setQrCode(null);
-        lastQrRef.current = null;
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        if (pollRef.current)      clearInterval(pollRef.current);
-        setLoading(false);
-        return;
-      }
-
-      setIsConnected(false);
-      connectedRef.current = false;
-
-      if (res.qrCode) {
-        setWaiting(false);
-
-        const isNewQR = res.qrCode !== lastQrRef.current;
-
-        if (isNewQR) {
-          lastQrRef.current = res.qrCode;
-          qrReceivedAtRef.current = Date.now();
-          setQrCode(res.qrCode);
-          startCountdown(res.expiresIn ?? QR_WINDOW_SECONDS);
-        } else {
-          setQrCode(res.qrCode);
-          setExpiresIn(prev => {
-            if (prev > 0) return prev; 
-            if (qrReceivedAtRef.current) {
-              const elapsed = Math.floor((Date.now() - qrReceivedAtRef.current) / 1000);
-              const remaining = Math.max(0, (res.expiresIn ?? QR_WINDOW_SECONDS) - elapsed);
-              if (remaining > 0) {
-                startCountdown(remaining);
-                return remaining;
-              }
-            }
-            return 0;
-          });
-        }
-      } else {
-        setQrCode(null);
-        lastQrRef.current = null;
-        setWaiting(true);
-      }
+      await api.post('/whatsapp/test-message', {});
+      setTestResult({ ok: true, msg: 'Test message sent! Check your WhatsApp.' });
     } catch (err: any) {
-      setError(err?.error || 'Failed to fetch WhatsApp status');
+      setTestResult({ ok: false, msg: err?.error || 'Failed to send test message.' });
     } finally {
-      setLoading(false);
+      setTesting(false);
     }
-  }, [startCountdown]);
+  };
 
-  useEffect(() => {
-    if (!isAdmin) return;
-    doPoll();
-    pollRef.current = setInterval(() => {
-      if (connectedRef.current) { clearInterval(pollRef.current!); return; }
-      doPoll();
-    }, 5000);
-    return () => {
-      if (pollRef.current)      clearInterval(pollRef.current);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-    };
-  }, [isAdmin, doPoll]);
-
-  if (!isAdmin) {
-    return (
-      <Card className="border-dashed">
-        <CardContent className="flex items-center gap-3 py-6 text-muted-foreground">
-          <ShieldX className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">WhatsApp QR setup is only available to admins.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (loading) {
+  if (connected === null) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>WhatsApp Authentication</CardTitle>
-          <CardDescription>Checking connection status…</CardDescription>
-        </CardHeader>
         <CardContent className="flex justify-center py-10">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </CardContent>
@@ -140,99 +55,98 @@ export function WhatsAppQRDisplay() {
     );
   }
 
-  if (isConnected) {
-    return (
-      <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+  return (
+    <div className="space-y-4">
+      {/* Status card */}
+      <Card className={connected
+        ? 'border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800'
+        : 'border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800'
+      }>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+            {connected
+              ? <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
+              : <XCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            }
             <div>
-              <CardTitle>WhatsApp Connected</CardTitle>
-              <CardDescription>Ready to send reminders to all users</CardDescription>
+              <CardTitle>Twilio WhatsApp</CardTitle>
+              <CardDescription>
+                {connected ? 'Credentials configured — reminders are active' : 'Credentials not configured'}
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-            Status: Active
+          <Badge variant="secondary" className={connected
+            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+            : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+          }>
+            {connected ? 'Active' : 'Not configured'}
           </Badge>
         </CardContent>
       </Card>
-    );
-  }
 
-  const isExpiringSoon = expiresIn > 0 && expiresIn <= 30;
-
-  return (
-    <Card className="border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
-      <CardHeader>
-        <CardTitle>WhatsApp Setup Required</CardTitle>
-        <CardDescription>Scan the QR code with WhatsApp to link the bot</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-
-        {error && (
-          <div className="flex items-center gap-2 p-3 bg-red-100 dark:bg-red-900 rounded-lg text-sm text-red-700 dark:text-red-300">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {qrCode && expiresIn > 0 ? (
-          <>
-            <div className="bg-white p-4 rounded-xl flex flex-col items-center gap-3 shadow-sm">
-              <img
-                key={qrCode}
-                src={qrCode}
-                alt="WhatsApp QR Code"
-                width={300}
-                height={300}
-                className="rounded-md"
-              />
-
-              <div className="w-full space-y-1">
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>Valid for</span>
-                  <span className={`font-medium ${isExpiringSoon ? 'text-red-500 font-bold' : ''}`}>
-                    {formatSeconds(expiresIn)}
-                  </span>
-                </div>
-                <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-1000 ${
-                      isExpiringSoon ? 'bg-red-500' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${(expiresIn / QR_WINDOW_SECONDS) * 100}%` }}
-                  />
-                </div>
-              </div>
+      {/* Sandbox opt-in instructions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-green-500" />
+            How users opt in (Sandbox)
+          </CardTitle>
+          <CardDescription>
+            Each user must send one WhatsApp message to activate reminders
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <p className="text-sm font-medium">Step 1 — Save this number in your phone:</p>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg font-mono text-sm">
+              <span className="flex-1">{SANDBOX_NUMBER}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { navigator.clipboard.writeText(SANDBOX_NUMBER); }}
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-              <p className="font-semibold mb-2">How to scan:</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>Open WhatsApp on your phone</li>
-                <li>Go to <strong>Settings → Linked Devices</strong></li>
-                <li>Tap <strong>"Link a Device"</strong></li>
-                <li>Scan this QR code</li>
-              </ol>
-              <p className="mt-2 text-xs opacity-75">
-                Once linked, you won't need to scan again — even after server restarts.
-              </p>
+            <p className="text-sm font-medium">Step 2 — Send this exact message on WhatsApp:</p>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg font-mono text-sm">
+              <span className="flex-1">{SANDBOX_CODE}</span>
+              <Button size="sm" variant="ghost" onClick={copyCode}>
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+              </Button>
             </div>
-          </>
-        ) : (
-          <div className="text-center py-8 space-y-3">
-            <Loader2 className="w-8 h-8 animate-spin text-amber-600 mx-auto" />
-            <p className="text-sm text-amber-700 dark:text-amber-300">
-              {waitingForQR
-                ? 'Waiting for QR code from server…'
-                : 'QR expired — new one arriving shortly…'}
-            </p>
-            <p className="text-xs text-muted-foreground">Refreshing automatically every 5 seconds</p>
+
+            <p className="text-sm font-medium">Step 3 — Make sure your WhatsApp number is saved in Settings → Profile</p>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+            <p className="font-semibold mb-1">ℹ️ Sandbox limitation</p>
+            <p>Each user must opt in once. After opt-in, reminders work automatically. This is a Twilio Sandbox restriction — upgrade to a paid Twilio number to remove it.</p>
+          </div>
+
+          {/* Admin test button */}
+          {isAdmin && (
+            <div className="pt-2 space-y-2">
+              <Button onClick={sendTest} disabled={testing || !connected} className="w-full">
+                {testing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending...</> : 'Send Test Message to My Number'}
+              </Button>
+              {testResult && (
+                <p className={`text-sm text-center ${testResult.ok ? 'text-green-600' : 'text-destructive'}`}>
+                  {testResult.msg}
+                </p>
+              )}
+              {!connected && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM to your Render env vars
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
