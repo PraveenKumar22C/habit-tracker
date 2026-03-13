@@ -7,7 +7,7 @@
   "scripts": {
     "start": "bash start.sh",
     "dev": "nodemon server.js",
-    "postinstall": "echo Skipping Chrome install at build time",
+    "postinstall": "node scripts/install-chrome.js",
     "make-admin": "node scripts/makeAdmin.js"
   },
   "dependencies": {

@@ -27,7 +27,6 @@ class KeepAliveService {
     const pingUrl = `${serverUrl.replace(/\/$/, '')}/api/health`;
     console.log(`[KeepAlive] Started — pinging ${pingUrl} every 14 minutes`);
 
-    // Ping immediately on start, then on interval
     this._ping(pingUrl);
     this._timer = setInterval(() => this._ping(pingUrl), PING_INTERVAL_MS);
   }
@@ -45,7 +44,6 @@ class KeepAliveService {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
       console.log(`[KeepAlive] Ping OK — ${res.status}`);
     } catch (err) {
-      // Non-fatal — just log, the next ping will retry
       console.warn(`[KeepAlive] Ping failed: ${err.message}`);
     }
   }

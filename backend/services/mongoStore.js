@@ -1,4 +1,5 @@
 import WhatsAppSession from '../models/WhatsappSession';
+
 export class MongoStore {
   constructor(opts = {}) {
     this.verbose = opts.verbose ?? false;
