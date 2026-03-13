@@ -1,3 +1,5 @@
+import { readFile, writeFile } from 'fs/promises';
+import path from 'path';
 import WhatsAppSession from '../models/WhatsappSession.js';
 
 export class MongoStore {
@@ -9,50 +11,55 @@ export class MongoStore {
     if (this.verbose) console.log('[MongoStore]', ...args);
   }
 
+  _sessionName(session) {
+    return path.basename(session);
+  }
+
   async sessionExists({ session }) {
-    const exists = !!(await WhatsAppSession.findOne({ sessionName: session }));
-    this._log(`sessionExists(${session}) =>`, exists);
+    const name = this._sessionName(session);
+    const exists = !!(await WhatsAppSession.findOne({ sessionName: name }));
+    this._log(`sessionExists(${name}) =>`, exists);
     return exists;
   }
 
-  async save({ session, data }) {
-    if (data === undefined || data === null) {
-      this._log(`save(${session}) — skipping, data is ${data}`);
-      return;
-    }
+  async save({ session }) {
+    const name    = this._sessionName(session);
+    const zipPath = `${session}.zip`;
 
     let base64;
-    if (Buffer.isBuffer(data)) {
-      base64 = data.toString('base64');
-    } else if (typeof data === 'string') {
-      base64 = data;
-    } else {
-      this._log(`save(${session}) — unexpected data type: ${typeof data}`);
-      base64 = Buffer.from(JSON.stringify(data)).toString('base64');
+    try {
+      const buf = await readFile(zipPath);
+      base64 = buf.toString('base64');
+    } catch (err) {
+      this._log(`save(${name}) — could not read zip at ${zipPath}: ${err.message}`);
+      return;
     }
 
     await WhatsAppSession.findOneAndUpdate(
-      { sessionName: session },
-      { sessionName: session, data: base64, updatedAt: new Date() },
+      { sessionName: name },
+      { sessionName: name, data: base64, updatedAt: new Date() },
       { upsert: true, new: true }
     );
-    this._log(`save(${session}) — ${Math.round(base64.length / 1024)} KB`);
+    this._log(`save(${name}) — stored ${Math.round(base64.length / 1024)} KB`);
   }
 
   async extract({ session, path: destPath }) {
-    const doc = await WhatsAppSession.findOne({ sessionName: session });
+    const name = this._sessionName(session);
+    const doc  = await WhatsAppSession.findOne({ sessionName: name });
+
     if (!doc) {
-      this._log(`extract(${session}) — not found in DB`);
+      this._log(`extract(${name}) — not found in DB`);
       return;
     }
-    const { writeFile } = await import('fs/promises');
+
     const buf = Buffer.from(doc.data, 'base64');
     await writeFile(destPath, buf);
-    this._log(`extract(${session}) — wrote ${buf.length} bytes to disk`);
+    this._log(`extract(${name}) — wrote ${buf.length} bytes to ${destPath}`);
   }
 
   async delete({ session }) {
-    await WhatsAppSession.deleteOne({ sessionName: session });
-    this._log(`delete(${session})`);
+    const name = this._sessionName(session);
+    await WhatsAppSession.deleteOne({ sessionName: name });
+    this._log(`delete(${name})`);
   }
 }
