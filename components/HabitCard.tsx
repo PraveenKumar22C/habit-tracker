@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Habit } from '@/lib/store';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { api } from '@/lib/api';
-import { useHabitStore } from '@/lib/store';
-import { Check, Flame } from 'lucide-react';
-import { toLocalDateStr, isToday } from '@/lib/dateUtils';
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Habit } from "@/lib/store";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
+import { useHabitStore } from "@/lib/store";
+import { Check, Flame } from "lucide-react";
+import { toLocalDateStr } from "@/lib/dateUtils";
 
 interface HabitCardProps {
   habit: Habit;
@@ -25,11 +25,12 @@ export default function HabitCard({ habit }: HabitCardProps) {
         const logs = await api.habits.getLogs(habit._id);
         const todayStr = toLocalDateStr(new Date());
         const alreadyDone = logs.some(
-          (l: any) => toLocalDateStr(new Date(l.date)) === todayStr && l.completed
+          (l: any) =>
+            toLocalDateStr(new Date(l.date)) === todayStr && l.completed,
         );
         setCheckedToday(alreadyDone);
       } catch (error) {
-        console.error('Failed to fetch logs:', error);
+        console.error("Failed to fetch logs:", error);
       }
     };
 
@@ -41,37 +42,55 @@ export default function HabitCard({ habit }: HabitCardProps) {
     try {
       const todayStr = toLocalDateStr(new Date());
 
-      await api.habits.log(habit._id, {
+      const logResponse = await api.habits.log(habit._id, {
         date: todayStr,
         completed: true,
         value: 1,
       });
 
+      if (logResponse.alreadyCompleted) {
+        setCheckedToday(true);
+        return;
+      }
+
       setCheckedToday(true);
 
+      const updatedStats = await api.habits.getStats(habit._id);
       updateHabit({
         ...habit,
         stats: {
           ...habit.stats,
-          currentStreak: habit.stats.currentStreak + 1,
-          totalCompletions: habit.stats.totalCompletions + 1,
+          currentStreak: updatedStats.currentStreak,
+          totalCompletions: updatedStats.totalCompletions,
+          completionRate: updatedStats.completionRate,
+          longestStreak: Math.max(
+            habit.stats.longestStreak,
+            updatedStats.currentStreak,
+          ),
         },
       });
     } catch (error) {
-      console.error('Failed to log habit:', error);
+      console.error("Failed to log habit:", error);
     } finally {
       setIsChecking(false);
     }
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 group" style={{ borderLeftColor: habit.color, borderLeftWidth: '5px' }}>
+    <Card
+      className="overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 group"
+      style={{ borderLeftColor: habit.color, borderLeftWidth: "5px" }}
+    >
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start gap-3">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">{habit.name}</CardTitle>
+            <CardTitle className="text-lg font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              {habit.name}
+            </CardTitle>
             {habit.description && (
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{habit.description}</p>
+              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
+                {habit.description}
+              </p>
             )}
           </div>
           <span className="text-xs font-semibold px-3 py-1 rounded-lg bg-accent/20 text-accent whitespace-nowrap capitalize">
@@ -84,23 +103,34 @@ export default function HabitCard({ habit }: HabitCardProps) {
           <div className="flex items-center gap-2">
             <Flame className="w-5 h-5 text-orange-500 animate-pulse" />
             <div>
-              <span className="text-sm text-muted-foreground">Current Streak</span>
-              <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{habit.stats.currentStreak}</p>
+              <span className="text-sm text-muted-foreground">
+                Current Streak
+              </span>
+              <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                {habit.stats.currentStreak}
+              </p>
             </div>
           </div>
           <span className="text-right">
             <p className="text-xs text-muted-foreground">Best</p>
-            <p className="text-lg font-bold text-primary">{habit.stats.longestStreak}</p>
+            <p className="text-lg font-bold text-primary">
+              {habit.stats.longestStreak}
+            </p>
           </span>
         </div>
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-semibold text-foreground">Completion Rate</span>
-            <span className="inline-flex items-center px-2 py-1 rounded-md text-sm font-bold" style={{ 
-              backgroundColor: habit.color + '20',
-              color: habit.color
-            }}>
+            <span className="text-sm font-semibold text-foreground">
+              Completion Rate
+            </span>
+            <span
+              className="inline-flex items-center px-2 py-1 rounded-md text-sm font-bold"
+              style={{
+                backgroundColor: habit.color + "20",
+                color: habit.color,
+              }}
+            >
               {habit.stats.completionRate}%
             </span>
           </div>
@@ -120,23 +150,30 @@ export default function HabitCard({ habit }: HabitCardProps) {
           <Button
             className={`flex-1 font-semibold transition-all ${
               checkedToday
-                ? 'bg-accent/20 text-accent hover:bg-accent/30'
-                : 'bg-primary hover:bg-primary/90 text-white'
+                ? "bg-accent/20 text-accent hover:bg-accent/30"
+                : "bg-primary hover:bg-primary/90 text-white"
             }`}
             disabled={isChecking || checkedToday}
             onClick={handleCheck}
-            variant={checkedToday ? 'outline' : 'default'}
+            variant={checkedToday ? "outline" : "default"}
           >
             <Check className="w-4 h-4 mr-2" />
-            {isChecking ? 'Checking...' : checkedToday ? 'Completed' : 'Check In'}
+            {isChecking
+              ? "Checking..."
+              : checkedToday
+                ? "Completed"
+                : "Check In"}
           </Button>
           <Link href={`/habits/${habit._id}`} className="flex-1">
-            <Button variant="outline" className="w-full font-semibold hover:bg-secondary/10 hover:text-secondary">
+            <Button
+              variant="outline"
+              className="w-full font-semibold hover:bg-secondary/10 hover:text-secondary"
+            >
               View
             </Button>
           </Link>
         </div>
       </CardContent>
     </Card>
-  );
+  ); 
 }

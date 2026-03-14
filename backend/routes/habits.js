@@ -168,17 +168,11 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
     const habitId = req.params.id;
 
     const habit = await Habit.findOne({ _id: habitId, userId: req.userId });
-    if (!habit) {
-      return res.status(404).json({ error: 'Habit not found' });
-    }
+    if (!habit) return res.status(404).json({ error: 'Habit not found' });
 
     const logDate = parseToUTCMidnight(date);
 
-    const existingLog = await HabitLog.findOne({
-      habitId,
-      userId: req.userId,
-      date: logDate,
-    });
+    const existingLog = await HabitLog.findOne({ habitId, userId: req.userId, date: logDate });
 
     if (existingLog && existingLog.completed) {
       const streak = await calculateStreak(habitId, req.userId);
@@ -187,27 +181,18 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
 
     let log = existingLog;
     if (!log) {
-      log = new HabitLog({
-        habitId,
-        userId: req.userId,
-        date: logDate,
-        completed,
-        value: value || 1,
-        notes: notes || '',
-      });
+      log = new HabitLog({ habitId, userId: req.userId, date: logDate, completed, value: value || 1, notes: notes || '' });
     } else {
       log.completed = completed;
       log.value = value || log.value;
       log.notes = notes || log.notes;
     }
-
     await log.save();
 
     const streak = await calculateStreak(habitId, req.userId);
 
     const milestones = [3, 7, 21, 30, 100];
     let milestoneReached = null;
-
     if (completed && milestones.includes(streak)) {
       milestoneReached = `${streak}-day`;
       log.milestone = { reached: true, type: milestoneReached };
@@ -215,12 +200,46 @@ router.post('/:id/log', authMiddleware, async (req, res) => {
     }
 
     if (completed) {
-      await Habit.findByIdAndUpdate(habitId, {
+      // Recalculate completionRate from logs
+      const allLogs = await HabitLog.find({ habitId, userId: req.userId });
+      const completedCount = allLogs.filter(l => l.completed).length;
+      const completionRate = allLogs.length > 0 ? Math.round((completedCount / allLogs.length) * 100) : 0;
+
+      // Update Habit stats (including completionRate)
+      const updatedHabit = await Habit.findByIdAndUpdate(habitId, {
         $set: {
           'stats.currentStreak': streak,
           'stats.longestStreak': Math.max(streak, habit.stats?.longestStreak || 0),
+          'stats.completionRate': completionRate,
         },
         $inc: { 'stats.totalCompletions': 1 },
+      }, { new: true });
+
+      // Sync User.stats — aggregate across all habits
+      const allHabits = await Habit.find({ userId: req.userId, isActive: true });
+      const userTotalCompletions = allHabits.reduce((sum, h) => {
+        const tc = h._id.toString() === habitId
+          ? (updatedHabit?.stats?.totalCompletions || 0)
+          : (h.stats?.totalCompletions || 0);
+        return sum + tc;
+      }, 0);
+
+      const userCurrentStreak = Math.max(...allHabits.map(h =>
+        h._id.toString() === habitId ? streak : (h.stats?.currentStreak || 0)
+      ));
+      const userLongestStreak = Math.max(...allHabits.map(h =>
+        h._id.toString() === habitId
+          ? Math.max(streak, habit.stats?.longestStreak || 0)
+          : (h.stats?.longestStreak || 0)
+      ));
+
+      await User.findByIdAndUpdate(req.userId, {
+        $set: {
+          'stats.totalCompletions': userTotalCompletions,
+          'stats.currentStreak': userCurrentStreak,
+          'stats.longestStreak': userLongestStreak,
+          'stats.totalHabits': allHabits.length,
+        },
       });
     }
 
