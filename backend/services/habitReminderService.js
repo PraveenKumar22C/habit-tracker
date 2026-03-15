@@ -5,18 +5,21 @@ import User from '../models/User.js';
 import whatsappClient from './whatsappClient.js';
 import { sendReminderEmail, emailEnabled } from './emailReminderService.js';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
 const IST_OFFSET_MS       = 5.5 * 60 * 60 * 1000;
 const SEND_WINDOW_MINUTES = 60;
 const BATCH_SIZE          = 5;
 const BATCH_DELAY_MS      = 2000;
-const SESSION_TTL_MS      = 23 * 60 * 60 * 1000;
+const SESSION_TTL_MS      = 23 * 60 * 60 * 1000; // 23h safety margin
 
+// Twilio sandbox session-expired error codes / messages
 const SANDBOX_ERROR_CODES = [63016, 63018, 21608];
 const SANDBOX_ERROR_TEXTS = [
   'not currently opted in', 'session expired', 'not joined',
   'outside allowed window', 'user did not send',
 ];
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function getISTNow() {
   const nowUTC = new Date();
   const istMs  = nowUTC.getTime() + IST_OFFSET_MS;
@@ -59,13 +62,18 @@ function hasActiveSandboxSession(user) {
   return (Date.now() - new Date(s.lastMessageAt).getTime()) < SESSION_TTL_MS;
 }
 
+// ─── Main service ─────────────────────────────────────────────────────────────
 class HabitReminderService {
 
+  // ── Entry point — used by both midnight cron AND admin trigger ─────────────
   async checkAndSendReminders({ returnStats = false, ignoreWindow = false } = {}) {
     const stats = {
+      // WhatsApp counters
       whatsappSent: 0, whatsappSkipped: 0, whatsappFailed: 0,
       sessionExpired: 0, notJoined: 0,
+      // Email fallback counters
       emailSent: 0, emailSkipped: 0, emailFailed: 0,
+      // Overall
       batches: 0,
     };
 
@@ -78,6 +86,7 @@ class HabitReminderService {
         `date: ${dateKey} | ignoreWindow: ${ignoreWindow}`
       );
 
+      // Fetch everyone who has reminder-enabled habits (with or without WhatsApp)
       const allUsers = await User.find({}).lean();
       const eligibleUsers = [];
 
@@ -148,6 +157,7 @@ class HabitReminderService {
     return returnStats ? stats : undefined;
   }
 
+  // ── Process all reminder habits for one user ───────────────────────────────
   async _processUser(user, nowMinutes, todayIST, tomorrowIST, ignoreWindow) {
     const result = {
       whatsappSent: 0, whatsappSkipped: 0, whatsappFailed: 0,
@@ -161,6 +171,7 @@ class HabitReminderService {
 
     if (!habits.length) return result;
 
+    // ── Determine which habits still need a reminder today ────────────────
     const pendingHabits = [];
     for (const habit of habits) {
       const eligible = await this._isHabitPending(
@@ -174,17 +185,20 @@ class HabitReminderService {
       return result;
     }
 
+    // ── Decide channel: WhatsApp first, email as fallback ─────────────────
     const waOk = whatsappClient.isConnected() &&
                  user.whatsappNumber &&
                  hasActiveSandboxSession(user);
 
     if (waOk) {
+      // ── WhatsApp path ──────────────────────────────────────────────────
       for (const habit of pendingHabits) {
         try {
           const outcome = await this._sendWhatsAppReminder(user, habit, todayIST);
           if (outcome === 'sent')          result.whatsappSent++;
           else if (outcome === 'session') {
             result.sessionExpired++;
+            // Session just expired mid-batch — fall through to email for remaining habits
             break;
           }
         } catch {
@@ -192,6 +206,7 @@ class HabitReminderService {
         }
       }
     } else {
+      // ── Log why WhatsApp was skipped ───────────────────────────────────
       if (user.whatsappNumber) {
         if (!user.whatsappSandbox?.joined) {
           result.notJoined++;
@@ -210,6 +225,7 @@ class HabitReminderService {
         }
       }
 
+      // ── Email fallback ─────────────────────────────────────────────────
       const emailOutcome = await this._sendEmailFallback(user, pendingHabits, todayIST);
       if (emailOutcome === 'sent')        result.emailSent++;
       else if (emailOutcome === 'skipped') result.emailSkipped++;
@@ -219,17 +235,21 @@ class HabitReminderService {
     return result;
   }
 
+  // ── Check whether a single habit still needs a reminder ───────────────────
   async _isHabitPending(habit, user, nowMinutes, todayIST, tomorrowIST, ignoreWindow) {
+    // Time-window check (skipped for midnight blast / admin trigger)
     if (!ignoreWindow) {
       const elapsed = nowMinutes - timeToMinutes(habit.reminder?.time);
       if (elapsed < 0 || elapsed > SEND_WINDOW_MINUTES) return false;
     }
 
+    // Already sent a reminder today (via any channel)?
     const alreadySent = await ReminderLog.findOne({
       habitId: habit._id, userId: user._id, date: todayIST, status: 'sent',
     });
     if (alreadySent) return false;
 
+    // Already completed today?
     const done = await HabitLog.findOne({
       habitId: habit._id, userId: user._id,
       date: { $gte: todayIST, $lt: tomorrowIST }, completed: true,
@@ -237,6 +257,7 @@ class HabitReminderService {
     return !done;
   }
 
+  // ── Send one WhatsApp reminder and log it ─────────────────────────────────
   async _sendWhatsAppReminder(user, habit, todayIST) {
     const message =
       `🔔 *Habit Reminder*\n\n` +
@@ -283,6 +304,9 @@ class HabitReminderService {
     }
   }
 
+  // ── Send email fallback for ALL pending habits in one email ───────────────
+  // Collects all pending habits and sends a single consolidated email.
+  // Logs ONE ReminderLog entry per habit so duplicates are prevented.
   async _sendEmailFallback(user, pendingHabits, todayIST) {
     if (!emailEnabled()) {
       console.log(`[ReminderService] 📧 Email not configured — skipping fallback for ${user.email || user._id}`);
@@ -302,6 +326,7 @@ class HabitReminderService {
     const outcome = await sendReminderEmail(user, habitList);
 
     if (outcome === 'sent') {
+      // Log one ReminderLog per habit so future runs know reminders were sent today
       await Promise.allSettled(
         pendingHabits.map(habit =>
           ReminderLog.create({
@@ -322,6 +347,7 @@ class HabitReminderService {
     return outcome;
   }
 
+  // ── Weekly summary reports (also batched, email fallback included) ─────────
   async sendWeeklyReports() {
     try {
       const allUsers = await User.find({
@@ -382,7 +408,9 @@ class HabitReminderService {
         await whatsappClient.sendMessage(user.whatsappNumber, message);
         console.log(`[ReminderService] 📲 Weekly WA → ${user.whatsappNumber}`);
       } else if (emailEnabled() && user.email) {
+        // Simple plain-text weekly summary email — reuse reminder template
         const { sendReminderEmail: sendEmail } = await import('./emailReminderService.js');
+        // Build a summary habit list for the email template
         const summaryHabits = habits.map((h, i) => ({
           name:        h.name,
           description: habitLines[i],
@@ -397,6 +425,7 @@ class HabitReminderService {
     }
   }
 
+  // ── Milestone message ──────────────────────────────────────────────────────
   async sendMilestoneMessage(user, habit, streak) {
     try {
       const milestones = {
@@ -418,6 +447,7 @@ class HabitReminderService {
         await whatsappClient.sendMessage(user.whatsappNumber, message);
         console.log(`[ReminderService] 🏅 Milestone (${streak}d) WA → ${user.whatsappNumber}`);
       } else if (emailEnabled() && user.email) {
+        // Milestone via email — treat the milestone as a one-habit reminder
         const { sendReminderEmail: sendEmail } = await import('./emailReminderService.js');
         await sendEmail(user, [{ name: `${milestones[streak]} — ${habit.name}`, description: `${streak}-day streak!` }]);
         console.log(`[ReminderService] 🏅 Milestone (${streak}d) email → ${user.email}`);
@@ -427,30 +457,47 @@ class HabitReminderService {
     }
   }
 
+  // ── Inbound webhook handler (refreshes sandbox session) ───────────────────
   async handleInboundMessage(from, body) {
     try {
-      const number       = from.replace('whatsapp:', '').replace('+', '').trim();
-      const isJoinMsg    = /^join\s+\S+/i.test((body || '').trim());
+      const number    = from.replace('whatsapp:', '').replace('+', '').trim();
+      const isJoinMsg = /^join\s+\S+/i.test((body || '').trim());
+
+      // ANY inbound message from a user proves they have joined the sandbox
+      // and opens/refreshes their 24h session window.
+      // We always set joined=true — if they can message us, they have joined.
       const update = {
+        'whatsappSandbox.joined':        true,   // ← always true on any inbound message
         'whatsappSandbox.sessionActive': true,
         'whatsappSandbox.lastMessageAt': new Date(),
         'whatsappSandbox.failReason':    null,
       };
+
+      // Track first join time only when they send the actual join message
       if (isJoinMsg) {
-        update['whatsappSandbox.joined']   = true;
         update['whatsappSandbox.joinedAt'] = new Date();
       }
-      const updated = await User.findOneAndUpdate({ whatsappNumber: number }, update, { new: true });
+
+      const updated = await User.findOneAndUpdate(
+        { whatsappNumber: number },
+        update,
+        { new: true }
+      );
+
       if (updated) {
-        console.log(`[ReminderService] 📩 Inbound from ${number} — session refreshed${isJoinMsg ? ' (join)' : ''}`);
+        console.log(
+          `[ReminderService] 📩 Inbound from ${number} — joined=true, session active` +
+          (isJoinMsg ? ' (join message)' : '')
+        );
       } else {
-        console.log(`[ReminderService] 📩 Inbound from unknown number ${number}`);
+        console.log(`[ReminderService] 📩 Inbound from unknown number ${number} — not in DB`);
       }
     } catch (err) {
       console.error('[ReminderService] handleInboundMessage error:', err);
     }
   }
 
+  // ── Sandbox status for admin table ─────────────────────────────────────────
   async getSandboxStatus() {
     const users = await User.find({
       whatsappNumber: { $exists: true, $nin: [null, ''] },
