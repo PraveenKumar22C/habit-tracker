@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Layout from '@/components/Layout';
 import { WhatsAppQRDisplay } from '@/components/WhatsAppQRDisplay';
+import { FieldError } from '@/components/Fielderror';
+import { validateName, validatePhone, validateWhatsApp } from '@/lib/validations';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -33,6 +35,12 @@ export default function SettingsPage() {
     whatsappReminders: user?.preferences?.whatsappReminders || false,
   });
 
+  const [fieldErrors, setFieldErrors] = useState({
+    name: '',
+    phone: '',
+    whatsappNumber: '',
+  });
+
   useEffect(() => {
     if (user) {
       setFormData({
@@ -49,30 +57,60 @@ export default function SettingsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (!token) {
-      router.push('/login');
-    }
+    if (!token) router.push('/login');
   }, [token, router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
-    }));
+    const newVal = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+    setFormData(prev => ({ ...prev, [name]: newVal }));
+
+    if (name === 'name') {
+      const r = validateName(String(newVal));
+      setFieldErrors(fe => ({ ...fe, name: r.valid ? '' : r.message }));
+    }
+    if (name === 'phone') {
+      const r = validatePhone(String(newVal));
+      setFieldErrors(fe => ({ ...fe, phone: r.valid ? '' : r.message }));
+    }
+    if (name === 'whatsappNumber') {
+      if (String(newVal).trim() === '') {
+        setFieldErrors(fe => ({ ...fe, whatsappNumber: '' }));
+      } else {
+        const r = validateWhatsApp(String(newVal));
+        setFieldErrors(fe => ({ ...fe, whatsappNumber: r.valid ? '' : r.message }));
+      }
+    }
   };
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateProfileForm = () => {
+    const nameErr = validateName(formData.name).message;
+    const phoneErr = validatePhone(formData.phone).message;
+    setFieldErrors(fe => ({ ...fe, name: nameErr, phone: phoneErr }));
+    return !nameErr && !phoneErr;
+  };
+
+  const validateWhatsAppForm = () => {
+    if (formData.whatsappNumber.trim()) {
+      const waErr = validateWhatsApp(formData.whatsappNumber).message;
+      setFieldErrors(fe => ({ ...fe, whatsappNumber: waErr }));
+      return !waErr;
+    }
+    return true;
+  };
+
+  const handleSaveProfile = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!validateProfileForm()) return;
     setLoading(true);
     setMessage('');
     setError('');
 
     try {
       const response = await api.auth.updateProfile({
-        name: formData.name,
-        phone: formData.phone,
-        whatsappNumber: formData.whatsappNumber,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        whatsappNumber: formData.whatsappNumber.trim(),
         preferences: {
           theme: formData.theme,
           reminderTime: formData.reminderTime,
@@ -84,9 +122,37 @@ export default function SettingsPage() {
       setUser(response);
       setTheme(formData.theme);
       setMessage('Profile updated successfully!');
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), 3500);
     } catch (err: any) {
-      setError(err.error || 'Failed to update profile');
+      setError(err.error || 'Failed to update profile. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveWhatsApp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!validateWhatsAppForm()) return;
+    setLoading(true);
+    setMessage('');
+    setError('');
+
+    try {
+      const response = await api.auth.updateProfile({
+        whatsappNumber: formData.whatsappNumber.trim(),
+        preferences: {
+          theme: formData.theme,
+          reminderTime: formData.reminderTime,
+          reminderType: formData.reminderType,
+          whatsappReminders: formData.whatsappReminders,
+        },
+      });
+
+      setUser(response);
+      setMessage('WhatsApp settings updated!');
+      setTimeout(() => setMessage(''), 3500);
+    } catch (err: any) {
+      setError(err.error || 'Failed to update WhatsApp settings.');
     } finally {
       setLoading(false);
     }
@@ -108,17 +174,18 @@ export default function SettingsPage() {
             <TabsTrigger value="about">About</TabsTrigger>
           </TabsList>
 
+          {/* ─── Profile Tab ─── */}
           <TabsContent value="profile" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
                 <CardTitle>Profile Information</CardTitle>
-                <CardDescription>Update your personal information</CardDescription>
+                <CardDescription>Update your personal information. Fields marked * are required.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSaveProfile} className="space-y-6">
+                <form onSubmit={handleSaveProfile} className="space-y-6" noValidate>
                   {message && (
-                    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
-                      {message}
+                    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
+                      ✓ {message}
                     </div>
                   )}
                   {error && (
@@ -127,36 +194,60 @@ export default function SettingsPage() {
                     </div>
                   )}
 
-                  <div className="space-y-2">
-                    <label htmlFor="name" className="text-sm font-medium">Full Name</label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleChange} />
+                  {/* Name */}
+                  <div className="space-y-1">
+                    <label htmlFor="name" className="text-sm font-medium">Full Name *</label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      maxLength={80}
+                      className={fieldErrors.name ? 'border-destructive focus:border-destructive' : ''}
+                    />
+                    <FieldError message={fieldErrors.name} />
                   </div>
 
-                  <div className="space-y-2">
-                    <label htmlFor="email" className="text-sm font-medium">Email (Cannot be changed)</label>
-                    <Input id="email" name="email" value={formData.email} disabled className="opacity-50" />
+                  {/* Email (read only) */}
+                  <div className="space-y-1">
+                    <label htmlFor="email" className="text-sm font-medium">Email</label>
+                    <Input
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      disabled
+                      className="opacity-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
                   </div>
 
-                  <div className="space-y-2">
-                    <label htmlFor="phone" className="text-sm font-medium">Phone Number</label>
+                  {/* Phone */}
+                  <div className="space-y-1">
+                    <label htmlFor="phone" className="text-sm font-medium">
+                      Phone Number <span className="font-normal text-muted-foreground">(optional)</span>
+                    </label>
                     <Input
                       id="phone"
                       name="phone"
                       type="tel"
-                      placeholder="+1234567890"
+                      placeholder="+91 9440667351"
                       value={formData.phone}
                       onChange={handleChange}
+                      className={fieldErrors.phone ? 'border-destructive focus:border-destructive' : ''}
                     />
+                    <FieldError message={fieldErrors.phone} />
+                    <p className="text-xs text-muted-foreground">Format: +country_code number (e.g. +91 9440667351)</p>
                   </div>
 
                   <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Changes'}
+                    {loading ? 'Saving…' : 'Save Changes'}
                   </Button>
                 </form>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ─── Preferences Tab ─── */}
           <TabsContent value="preferences" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -166,8 +257,8 @@ export default function SettingsPage() {
               <CardContent>
                 <form onSubmit={handleSaveProfile} className="space-y-6">
                   {message && (
-                    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
-                      {message}
+                    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
+                      ✓ {message}
                     </div>
                   )}
                   {error && (
@@ -216,25 +307,26 @@ export default function SettingsPage() {
                   </div>
 
                   <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : 'Save Preferences'}
+                    {loading ? 'Saving…' : 'Save Preferences'}
                   </Button>
                 </form>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ─── WhatsApp Tab ─── */}
           <TabsContent value="whatsapp" className="space-y-4 mt-6">
             {isAdmin && <WhatsAppQRDisplay />}
 
             <Card>
               <CardHeader>
-                <CardTitle>WhatsApp Reminder Configuration</CardTitle>
-                <CardDescription>Set up your WhatsApp number and reminder preferences</CardDescription>
+                <CardTitle>WhatsApp Configuration</CardTitle>
+                <CardDescription>Set up your WhatsApp number and reminder schedule</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {message && (
-                  <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800">
-                    {message}
+                  <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
+                    ✓ {message}
                   </div>
                 )}
                 {error && (
@@ -243,46 +335,50 @@ export default function SettingsPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <label htmlFor="whatsappNumber" className="text-sm font-medium">
-                    WhatsApp Number (with country code)
-                  </label>
-                  <Input
-                    id="whatsappNumber"
-                    name="whatsappNumber"
-                    placeholder="Example: 919440667351 (India +91)"
-                    value={formData.whatsappNumber}
-                    onChange={handleChange}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Format: Country code + phone number (no spaces or hyphens)
-                  </p>
-                </div>
+                <form onSubmit={handleSaveWhatsApp} className="space-y-4" noValidate>
+                  <div className="space-y-1">
+                    <label htmlFor="whatsappNumber" className="text-sm font-medium">
+                      WhatsApp Number <span className="text-muted-foreground font-normal">(with country code, no + or spaces)</span>
+                    </label>
+                    <Input
+                      id="whatsappNumber"
+                      name="whatsappNumber"
+                      placeholder="e.g. 919440667351"
+                      value={formData.whatsappNumber}
+                      onChange={handleChange}
+                      className={fieldErrors.whatsappNumber ? 'border-destructive focus:border-destructive' : ''}
+                    />
+                    <FieldError message={fieldErrors.whatsappNumber} />
+                    <p className="text-xs text-muted-foreground">
+                      Format: country code + number, digits only.
+                      <br />Examples: <code className="bg-muted px-1 rounded">919440667351</code> (India +91) · <code className="bg-muted px-1 rounded">14155238886</code> (US +1) · <code className="bg-muted px-1 rounded">447700900123</code> (UK +44)
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Reminder Type</label>
-                  <select
-                    name="reminderType"
-                    value={formData.reminderType}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                  >
-                    <option value="daily">Daily</option>
-                    <option value="weekly">Weekly (Sunday)</option>
-                    <option value="both">Both Daily & Weekly</option>
-                  </select>
-                  <p className="text-xs text-muted-foreground">
-                    Daily: Reminders at your scheduled time. Weekly: Summary every Sunday at 9 PM.
-                  </p>
-                </div>
+                  <div className="space-y-2">
+                    <label htmlFor="settingsReminderType" className="text-sm font-medium">Reminder Type</label>
+                    <select
+                      id="settingsReminderType"
+                      name="reminderType"
+                      value={formData.reminderType}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                    >
+                      <option value="daily">Daily (at your per-habit scheduled time)</option>
+                      <option value="weekly">Weekly Summary (Sunday 9 PM IST)</option>
+                      <option value="both">Both Daily & Weekly</option>
+                    </select>
+                  </div>
 
-                <Button onClick={handleSaveProfile as any} disabled={loading}>
-                  {loading ? 'Updating...' : 'Update WhatsApp Settings'}
-                </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? 'Updating…' : 'Update WhatsApp Settings'}
+                  </Button>
+                </form>
               </CardContent>
             </Card>
           </TabsContent>
 
+          {/* ─── About Tab ─── */}
           <TabsContent value="about" className="space-y-4 mt-6">
             <Card>
               <CardHeader>
@@ -301,7 +397,7 @@ export default function SettingsPage() {
                     <li>Analytics and insights</li>
                     <li>GitHub-style heatmap visualization</li>
                     <li>Milestone celebrations</li>
-                    <li>WhatsApp reminders</li>
+                    <li>WhatsApp reminders via Twilio</li>
                   </ul>
                 </div>
                 <div>

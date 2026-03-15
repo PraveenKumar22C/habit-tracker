@@ -6,48 +6,73 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from '@/components/ui/card';
 import { useAuthStore } from '@/lib/store';
 import { GoogleSignIn } from '@/components/GoogleSignIn';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { FieldError } from '@/components/Fielderror';
+import { validateEmail, validatePassword } from '@/lib/validations';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
-  const [email, setEmail] = useState('');
+
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
+  const [touched, setTouched]   = useState({ email: false, password: false });
+  const [formError, setFormError] = useState('');
+  const [loading, setLoading]   = useState(false);
+
+  const handleBlur = (field: 'email' | 'password') => {
+    setTouched(t => ({ ...t, [field]: true }));
+    if (field === 'email') {
+      const r = validateEmail(email);
+      setFieldErrors(e => ({ ...e, email: r.valid ? '' : r.message }));
+    }
+    if (field === 'password') {
+      const r = validatePassword(password);
+      setFieldErrors(e => ({ ...e, password: r.valid ? '' : r.message }));
+    }
+  };
+
+  const validate = (): boolean => {
+    const emailErr = validateEmail(email).message;
+    const passErr  = validatePassword(password).message;
+    setFieldErrors({ email: emailErr, password: passErr });
+    return !emailErr && !passErr;
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+    setFormError('');
+    setTouched({ email: true, password: true });
 
+    if (!validate()) return;
+
+    setLoading(true);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body:    JSON.stringify({
+          email:    email.trim().toLowerCase(),
+          password,
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'Login failed');
+        setFormError(data.error || 'Invalid email or password. Please try again.');
         return;
       }
 
       login(data.token, data.user);
       router.push('/dashboard');
-    } catch (err) {
-      setError('Network error. Please try again.');
-      console.error(err);
+    } catch {
+      setFormError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -72,6 +97,7 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-5 pt-0">
+
           <GoogleSignIn />
 
           <div className="relative">
@@ -84,44 +110,70 @@ export default function LoginPage() {
               </span>
             </div>
           </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && (
+          <form onSubmit={handleLogin} className="space-y-4" noValidate>
+            {formError && (
               <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive text-center">
-                {error}
+                {formError}
               </div>
             )}
 
-            <div className="space-y-1.5">
+            {/* Email */}
+            <div className="space-y-1">
               <label htmlFor="email" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Email
+                Email *
               </label>
               <Input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40"
+                onChange={e => {
+                  setEmail(e.target.value);
+                  if (touched.email) {
+                    const r = validateEmail(e.target.value);
+                    setFieldErrors(err => ({ ...err, email: r.valid ? '' : r.message }));
+                  }
+                }}
+                onBlur={() => handleBlur('email')}
+                aria-invalid={!!fieldErrors.email}
+                className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
+                  fieldErrors.email ? 'border-destructive focus:border-destructive' : ''
+                }`}
               />
+              <FieldError message={fieldErrors.email} />
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Password
-                </label>
-              </div>
+            {/* Password */}
+            <div className="space-y-1">
+              <label htmlFor="password" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Password *
+              </label>
               <Input
                 id="password"
                 type="password"
-                placeholder="••••••••"
+                placeholder="e.g. Chandu@13k"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40"
+                onChange={e => {
+                  setPassword(e.target.value);
+                  if (touched.password) {
+                    const r = validatePassword(e.target.value);
+                    setFieldErrors(err => ({ ...err, password: r.valid ? '' : r.message }));
+                  }
+                }}
+                onBlur={() => handleBlur('password')}
+                aria-invalid={!!fieldErrors.password}
+                maxLength={13}
+                className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
+                  fieldErrors.password ? 'border-destructive focus:border-destructive' : ''
+                }`}
               />
+              <FieldError message={fieldErrors.password} />
+              {/* Hint shown only before the field is touched */}
+              {!touched.password && (
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  8–13 chars · uppercase · number · special character
+                </p>
+              )}
             </div>
 
             <Button
@@ -129,7 +181,7 @@ export default function LoginPage() {
               className="w-full h-11 font-semibold tracking-wide text-sm mt-1"
               disabled={loading}
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
 
