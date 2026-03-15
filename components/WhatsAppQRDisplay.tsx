@@ -395,7 +395,7 @@ export function WhatsAppQRDisplay() {
                     Set <em>"WHEN A MESSAGE COMES IN"</em> to:
                   </p>
                   <div className="font-mono text-xs bg-muted p-2 rounded select-all break-all">
-                    https://your-backend.onrender.com/api/whatsapp/webhook
+                    https://habit-tracker-qckj.onrender.com/api/whatsapp/webhook
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300">
                     When a user messages the sandbox, this endpoint automatically marks their

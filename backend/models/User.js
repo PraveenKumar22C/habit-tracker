@@ -34,20 +34,12 @@ const userSchema = new mongoose.Schema({
   profileImage: { type: String, default: null },
   authMethod:   { type: String, enum: ['email', 'google'], default: 'email' },
   isAdmin:      { type: Boolean, default: false },
-
-  // ── Twilio Sandbox Session ────────────────────────────────────────────────
-  // Tracks whether this user has an active 24-hour sandbox session.
-  // Twilio sandbox ONLY delivers messages if the user messaged the sandbox
-  // within the last 24 hours. We track this so we can:
-  //   1. Skip users with no active session (avoid wasting API calls)
-  //   2. Show admin a list of users who need to re-ping
-  //   3. Auto-update session status from Twilio delivery callbacks
   whatsappSandbox: {
-    joined:        { type: Boolean, default: false  },   // has ever sent join code
-    sessionActive: { type: Boolean, default: false  },   // sent a message in last 24h
-    lastMessageAt: { type: Date,    default: null   },   // last inbound msg from user
-    joinedAt:      { type: Date,    default: null   },   // when they first joined
-    failReason:    { type: String,  default: null   },   // last Twilio error message
+    joined:        { type: Boolean, default: false  }, 
+    sessionActive: { type: Boolean, default: false  }, 
+    lastMessageAt: { type: Date,    default: null   }, 
+    joinedAt:      { type: Date,    default: null   }, 
+    failReason:    { type: String,  default: null   }, 
   },
 
   preferences: {
