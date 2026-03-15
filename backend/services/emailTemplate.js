@@ -40,7 +40,7 @@ export const authFailureEmailTemplate = ({ error, context, settingsUrl }) => `
         <p>Automated alert from your server</p>
       </div>
       <div class="body">
-        <div class="alert-badge">🚨 Authentication Failed</div>
+        <div class="alert-badge">&#x1F6A8; Authentication Failed</div>
         <h2>Twilio WhatsApp Reminders Paused</h2>
         <p>
           Your HabitTrack server failed to authenticate with <strong>Twilio</strong>.
@@ -52,8 +52,8 @@ export const authFailureEmailTemplate = ({ error, context, settingsUrl }) => `
           <p style="margin-top:6px"><strong>Message:</strong> ${error}</p>
         </div>
         <div class="info-box">
-          <p>📵 <span>Reminders paused</span> — users won't receive habit notifications</p>
-          <p>🔑 <span>Fix:</span> Check your Twilio credentials in Render env vars</p>
+          <p>&#x1F4F5; <span>Reminders paused</span> — users won't receive habit notifications</p>
+          <p>&#x1F511; <span>Fix:</span> Check your Twilio credentials in Render env vars</p>
         </div>
         <p>Verify these environment variables are set correctly on Render:</p>
         <div class="error-box">
@@ -61,7 +61,7 @@ export const authFailureEmailTemplate = ({ error, context, settingsUrl }) => `
           <p style="margin-top:4px">TWILIO_AUTH_TOKEN=your_auth_token</p>
           <p style="margin-top:4px">TWILIO_WHATSAPP_FROM=+14155238886</p>
         </div>
-        <a href="${settingsUrl}" class="cta-btn">Open App Settings →</a>
+        <a href="${settingsUrl}" class="cta-btn">Open App Settings &#x2192;</a>
         <div class="divider"></div>
         <p style="font-size:13px;margin:0;color:#52525b;">
           If credentials look correct, check your Twilio Console at
@@ -79,7 +79,7 @@ export const authFailureEmailTemplate = ({ error, context, settingsUrl }) => `
 </html>
 `;
 
-// ─── Tiny HTML escape — prevents injection from user-supplied habit names ─────
+// ─── HTML escape helper ───────────────────────────────────────────────────────
 function escapeHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -88,28 +88,145 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ─── Habit reminder email ─────────────────────────────────────────────────────
-// Fallback sent when a user's WhatsApp sandbox session is expired or they
-// haven't joined. Encourages them to log in and check their notification prefs.
-// Also lists the habits they have waiting for today, so they see the value of
-// rejoining the sandbox and getting WhatsApp reminders working again.  
-export const habitReminderEmailTemplate = ({ userName, habits, appUrl }) => {
+// ─── Habit reminder email with WhatsApp activation box ───────────────────────
+//
+// This is the FALLBACK email sent when the user's WhatsApp sandbox session
+// is expired or they haven't joined. It looks like a normal product reminder.
+// At the bottom it has a beautiful "Get WhatsApp Reminders" box showing
+// exactly how to join — so they can fix their session themselves.
+//
+// @param {string}  userName      display name
+// @param {Array}   habits        [{ name, description? }]  — unfinished habits today
+// @param {string}  appUrl        dashboard link
+// @param {string}  sandboxNumber Twilio sandbox WhatsApp number
+// @param {string}  sandboxCode   e.g. "join scientific-lungs"
+// @param {string}  settingsUrl   link to Settings → WhatsApp tab
+//
+export const habitReminderEmailTemplate = ({
+  userName,
+  habits,
+  appUrl,
+  sandboxNumber = '+14155238886',
+  sandboxCode   = 'join scientific-lungs',
+  settingsUrl,
+}) => {
   const rows = habits.map(h => `
-        <tr>
-          <td style="padding:12px 0;border-bottom:1px solid #242424;">
-            <p style="margin:0;font-size:14px;font-weight:600;color:#f0f0f0;line-height:1.4;">
-              ${escapeHtml(h.name)}
-            </p>
-            ${h.description
-              ? `<p style="margin:3px 0 0;font-size:12px;color:#71717a;line-height:1.5;">${escapeHtml(h.description)}</p>`
-              : ''}
-          </td>
-        </tr>`).join('');
+          <tr>
+            <td style="padding:12px 0;border-bottom:1px solid #242424;">
+              <p style="margin:0;font-size:14px;font-weight:600;color:#f0f0f0;line-height:1.4;">
+                ${escapeHtml(h.name)}
+              </p>
+              ${h.description
+                ? `<p style="margin:3px 0 0;font-size:12px;color:#71717a;line-height:1.5;">${escapeHtml(h.description)}</p>`
+                : ''}
+            </td>
+          </tr>`).join('');
 
-  const count   = habits.length;
+  const count    = habits.length;
   const countTxt = count === 1
     ? `<strong style="color:#f0f0f0;">1 habit</strong> waiting for today`
     : `<strong style="color:#f0f0f0;">${count} habits</strong> waiting for today`;
+
+  const whatsappBox = `
+        <!-- ── WhatsApp activation box ── -->
+        <div style="
+          margin-top:28px;
+          border-radius:14px;
+          overflow:hidden;
+          border:1px solid #1a3a2a;
+          background:#0d1f17;
+        ">
+          <!-- Box header -->
+          <div style="
+            background:linear-gradient(135deg,#1D9E75 0%,#0a5c44 100%);
+            padding:16px 24px 14px;
+          ">
+            <p style="margin:0;font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.2px;">
+              &#x1F4F2; Get WhatsApp Reminders Instead
+            </p>
+            <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.78);">
+              Two quick steps &#x2022; done once &#x2022; works every night
+            </p>
+          </div>
+
+          <!-- Box body -->
+          <div style="padding:20px 24px 24px;">
+
+            <!-- Step 1 -->
+            <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#1D9E75;text-transform:uppercase;letter-spacing:0.6px;">
+              Step 1 &#x2014; Save this number on WhatsApp
+            </p>
+            <div style="
+              background:#111;
+              border:1px solid #1a3a2a;
+              border-radius:8px;
+              padding:10px 14px;
+              margin-bottom:16px;
+              font-family:monospace;
+              font-size:15px;
+              color:#f0f0f0;
+              letter-spacing:0.5px;
+            ">
+              ${escapeHtml(sandboxNumber)}
+            </div>
+
+            <!-- Step 2 -->
+            <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#1D9E75;text-transform:uppercase;letter-spacing:0.6px;">
+              Step 2 &#x2014; Send this exact message to that number
+            </p>
+            <div style="
+              background:#111;
+              border:1px solid #1a3a2a;
+              border-radius:8px;
+              padding:10px 14px;
+              margin-bottom:16px;
+              font-family:monospace;
+              font-size:15px;
+              color:#f0f0f0;
+              letter-spacing:0.5px;
+            ">
+              ${escapeHtml(sandboxCode)}
+            </div>
+
+            <!-- Step 3 -->
+            <p style="margin:0 0 14px;font-size:12px;font-weight:700;color:#1D9E75;text-transform:uppercase;letter-spacing:0.6px;">
+              Step 3 &#x2014; Check your settings
+            </p>
+            <a href="${settingsUrl || appUrl}" style="
+              display:block;
+              text-align:center;
+              padding:11px 24px;
+              background:linear-gradient(135deg,#1D9E75,#0a5c44);
+              color:#fff;
+              text-decoration:none;
+              border-radius:8px;
+              font-weight:700;
+              font-size:13px;
+            ">
+              Open WhatsApp Settings &#x2192;
+            </a>
+
+            <!-- Daily re-ping reminder -->
+            <div style="
+              margin-top:16px;
+              padding:12px 14px;
+              background:#0a1a12;
+              border:1px solid #14301f;
+              border-radius:8px;
+            ">
+              <p style="margin:0;font-size:11px;color:#3d8a60;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">
+                Keep reminders active
+              </p>
+              <p style="margin:0;font-size:12px;color:#4a7a5a;line-height:1.6;">
+                Send <span style="font-family:monospace;color:#6ab88a;">any message</span> to
+                <span style="font-family:monospace;color:#6ab88a;">${escapeHtml(sandboxNumber)}</span>
+                at least once every 24 hours to keep your session alive.
+                Once joined, a simple <span style="font-family:monospace;color:#6ab88a;">"hi"</span> is enough.
+              </p>
+            </div>
+
+          </div>
+        </div>`;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -125,8 +242,6 @@ export const habitReminderEmailTemplate = ({ userName, habits, appUrl }) => {
     .hdr h1{margin:0;font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.3px;}
     .hdr p{margin:5px 0 0;font-size:12px;color:rgba(255,255,255,0.72);}
     .bdy{padding:32px;}
-    .name{margin:0 0 4px;font-size:20px;font-weight:700;color:#f0f0f0;line-height:1.3;}
-    .sub{margin:0 0 24px;font-size:14px;color:#a1a1aa;line-height:1.7;}
     table{width:100%;border-collapse:collapse;margin:0 0 28px;}
     table tr:last-child td{border-bottom:none;}
     .btn{display:block;text-align:center;padding:14px 32px;background:linear-gradient(135deg,#1D9E75,#0a5c44);color:#fff!important;text-decoration:none;border-radius:10px;font-weight:700;font-size:15px;}
@@ -145,8 +260,12 @@ export const habitReminderEmailTemplate = ({ userName, habits, appUrl }) => {
       </div>
 
       <div class="bdy">
-        <p class="name">Hey ${escapeHtml(userName)} 👋</p>
-        <p class="sub">You have ${countTxt}. Keep the streak going — every day counts.</p>
+        <p style="margin:0 0 4px;font-size:20px;font-weight:700;color:#f0f0f0;line-height:1.3;">
+          Hey ${escapeHtml(userName)} &#x1F44B;
+        </p>
+        <p style="margin:0 0 24px;font-size:14px;color:#a1a1aa;line-height:1.7;">
+          You have ${countTxt}. Keep the streak going — every day counts.
+        </p>
 
         <table>
           <tbody>
@@ -154,7 +273,9 @@ export const habitReminderEmailTemplate = ({ userName, habits, appUrl }) => {
           </tbody>
         </table>
 
-        <a href="${appUrl}" class="btn">Check In Now →</a>
+        <a href="${appUrl}" class="btn">Check In Now &#x2192;</a>
+
+        ${whatsappBox}
 
         <div class="div"></div>
         <p style="font-size:13px;color:#52525b;margin:0;line-height:1.7;">

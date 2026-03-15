@@ -40,6 +40,7 @@ app.use(cors({
 
 app.options('*', cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false })); // ← ADDED: Twilio webhook sends form-encoded data
 app.use(passport.initialize());
 
 passport.use(new passportGoogle.Strategy({
@@ -99,9 +100,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Allowed origins: ${allowedOrigins.join(', ')}`);
-
   reminderScheduler.start();
-
   keepAlive.start();
 });
 
