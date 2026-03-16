@@ -14,12 +14,15 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useRefreshUser } from "@/lib/useRefreshUser";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, token, logout } = useAuthStore();
   const { sidebarOpen, toggleSidebar } = useUIStore();
+
+  useRefreshUser(); 
 
   useEffect(() => {
     if (!token) {

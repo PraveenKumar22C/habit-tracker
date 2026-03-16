@@ -25,6 +25,28 @@ export const api = {
     return response.json();
   },
 
+  async requestFresh(endpoint: string, options: RequestInit = {}) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+ 
+    const headers = new Headers(options.headers);
+    headers.set('Content-Type', 'application/json');
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+ 
+    const sep = endpoint.includes('?') ? '&' : '?';
+    const url = `${API_URL}${endpoint}${sep}_t=${Date.now()}`;
+ 
+    const response = await fetch(url, { ...options, headers, cache: 'no-store' });
+ 
+    if (!response.ok) {
+      const error = await response.json();
+      throw error;
+    }
+ 
+    return response.json();
+  },
+
   get: (endpoint: string) => api.request(endpoint),
 
   post: (endpoint: string, body: any) =>
@@ -45,7 +67,7 @@ export const api = {
     }),
 
   auth: {
-    me: () => api.request("/auth/me"),
+    me: () => api.requestFresh('/auth/me'),
     register: (email: string, password: string, name: string) =>
       api.request("/auth/register", {
         method: "POST",
