@@ -35,6 +35,9 @@ const SANDBOX_NUMBER =
 const SANDBOX_CODE =
   process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE || "join scientific-lungs";
 
+const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+const webhookUrl = `${baseUrl}/whatsapp/webhook`;
+
 function AccordionSection({
   title,
   description,
@@ -551,9 +554,7 @@ export function WhatsAppQRDisplay() {
                     Set <em>"WHEN A MESSAGE COMES IN"</em> to:
                   </p>
                   <div className="font-mono text-xs bg-muted p-2 rounded select-all break-all">
-                    {process.env.NEXT_PUBLIC_BASE_URL && (
-                      <>{process.env.NEXT_PUBLIC_BASE_URL}/whatsapp/webhook</>
-                    )}
+                    {webhookUrl}
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300">
                     Method: <strong>HTTP POST</strong>. This auto-marks sessions

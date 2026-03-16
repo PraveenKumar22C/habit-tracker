@@ -40,7 +40,7 @@ const SANDBOX_NUMBER =
   process.env.NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER || "+14155238886";
 const SANDBOX_CODE =
   process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE || "join scientific-lungs";
-
+  
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
