@@ -193,7 +193,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // Update user profile — PUT /api/auth/me
-router.put("/me", authMiddleware, async (req, res) => {
+router.put('/me', authMiddleware, async (req, res) => {
   try {
     const { name, phone, whatsappNumber, preferences } = req.body;
 
@@ -206,14 +206,20 @@ router.put("/me", authMiddleware, async (req, res) => {
         ...(preferences && { preferences }),
         updatedAt: new Date(),
       },
-      { new: true },
+      { new: true }
     );
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma':        'no-cache',
+      'Expires':       '0',
+    });
+
     res.json(user.toJSON());
   } catch (error) {
-    res.status(500).json({ error: "Failed to update user" });
+    res.status(500).json({ error: 'Failed to update user' });
   }
 });
-
 export default router;
