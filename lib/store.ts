@@ -143,12 +143,33 @@ interface UIStore {
   toggleDarkMode: () => void;
 }
 
+function getInitialSidebarState(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const saved = localStorage.getItem('sidebar_open');
+    if (saved === 'true' && window.innerWidth >= 768) return true;
+  } catch {}
+  return false;
+}
+
 export const useUIStore = create<UIStore>((set) => ({
-  sidebarOpen: true,
+  sidebarOpen: getInitialSidebarState(),
   darkMode: true,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+
+  setSidebarOpen: (open) => {
+    set({ sidebarOpen: open });
+    try { localStorage.setItem('sidebar_open', String(open)); } catch {}
+  },
+
   setDarkMode: (dark) => set({ darkMode: dark }),
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+
+  toggleSidebar: () =>
+    set((state) => {
+      const next = !state.sidebarOpen;
+      try { localStorage.setItem('sidebar_open', String(next)); } catch {}
+      return { sidebarOpen: next };
+    }),
+
   toggleDarkMode: () => set((state) => ({ darkMode: !state.darkMode })),
 }));
 

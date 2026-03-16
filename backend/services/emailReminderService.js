@@ -56,7 +56,7 @@ export async function sendReminderEmail(user, habits, missedMode = false) {
   }
   if (!habits?.length) return "skipped";
 
-  const appUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/dashboard`;
+  const appUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/habits`;
   const settingsUrl = `${process.env.FRONTEND_URL || "http://localhost:3000"}/settings?tab=whatsapp`;
   const sandboxNumber = process.env.TWILIO_WHATSAPP_FROM
     ? `+${process.env.TWILIO_WHATSAPP_FROM.replace(/^\+/, "")}`
