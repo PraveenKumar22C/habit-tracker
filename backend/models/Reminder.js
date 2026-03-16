@@ -1,14 +1,14 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const reminderSchema = new mongoose.Schema({
   habitId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Habit',
+    ref: "Habit",
     required: true,
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: true,
   },
   time: {
@@ -21,8 +21,8 @@ const reminderSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['whatsapp', 'email', 'notification'],
-    default: 'notification',
+    enum: ["whatsapp", "email", "notification"],
+    default: "notification",
   },
   lastSent: {
     type: Date,
@@ -38,4 +38,4 @@ const reminderSchema = new mongoose.Schema({
   },
 });
 
-export default mongoose.model('Reminder', reminderSchema);
+export default mongoose.model("Reminder", reminderSchema);

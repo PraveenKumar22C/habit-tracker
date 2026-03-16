@@ -175,5 +175,5 @@ export default function HabitCard({ habit }: HabitCardProps) {
         </div>
       </CardContent>
     </Card>
-  ); 
+  );
 }

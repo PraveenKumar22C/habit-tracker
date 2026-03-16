@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Trash2, AlertTriangle } from "lucide-react";
 
 interface DeleteModalProps {
   isOpen: boolean;
@@ -15,8 +15,8 @@ interface DeleteModalProps {
 
 export function DeleteModal({
   isOpen,
-  title = 'Delete Habit',
-  description = 'Are you sure you want to delete this habit? This action cannot be undone and all logs will be permanently removed.',
+  title = "Delete Habit",
+  description = "Are you sure you want to delete this habit? This action cannot be undone and all logs will be permanently removed.",
   onConfirm,
   onCancel,
   loading = false,
@@ -37,7 +37,9 @@ export function DeleteModal({
 
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {description}
+          </p>
         </div>
 
         <div className="flex gap-3 pt-2">
@@ -56,7 +58,7 @@ export function DeleteModal({
             disabled={loading}
           >
             <Trash2 className="w-4 h-4 mr-2" />
-            {loading ? 'Deleting...' : 'Delete'}
+            {loading ? "Deleting..." : "Delete"}
           </Button>
         </div>
       </div>

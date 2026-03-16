@@ -1,47 +1,59 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from '@/components/ui/card';
-import { useAuthStore } from '@/lib/store';
-import { GoogleSignIn } from '@/components/GoogleSignIn';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { FieldError } from '@/components/Fielderror';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuthStore } from "@/lib/store";
+import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { FieldError } from "@/components/Fielderror";
 import {
   validateEmail,
   validatePassword,
   validateConfirmPassword,
   validateName,
   passwordStrength,
-} from '@/lib/validations';
+} from "@/lib/validations";
 
-type Fields = 'name' | 'email' | 'password' | 'confirmPassword';
+type Fields = "name" | "email" | "password" | "confirmPassword";
 
 function PasswordChecklist({ password }: { password: string }) {
   if (!password) return null;
 
   const checks = [
-    { label: '8–13 characters',               ok: password.length >= 8 && password.length <= 13 },
-    { label: 'One uppercase letter (A–Z)',     ok: /[A-Z]/.test(password) },
-    { label: 'One number (0–9)',              ok: /[0-9]/.test(password) },
-    { label: 'One special character (!@#…)',  ok: /[^A-Za-z0-9]/.test(password) },
+    {
+      label: "8–13 characters",
+      ok: password.length >= 8 && password.length <= 13,
+    },
+    { label: "One uppercase letter (A–Z)", ok: /[A-Z]/.test(password) },
+    { label: "One number (0–9)", ok: /[0-9]/.test(password) },
+    {
+      label: "One special character (!@#…)",
+      ok: /[^A-Za-z0-9]/.test(password),
+    },
   ];
 
   return (
     <ul className="mt-1.5 space-y-0.5">
-      {checks.map(c => (
+      {checks.map((c) => (
         <li
           key={c.label}
           className={`flex items-center gap-1.5 text-xs transition-colors ${
-            c.ok ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'
+            c.ok
+              ? "text-green-600 dark:text-green-400"
+              : "text-muted-foreground"
           }`}
         >
-          <span className="w-3 text-center">{c.ok ? '✓' : '○'}</span>
+          <span className="w-3 text-center">{c.ok ? "✓" : "○"}</span>
           {c.label}
         </li>
       ))}
@@ -54,10 +66,25 @@ function StrengthBar({ password }: { password: string }) {
 
   const strength = passwordStrength(password);
   const config = {
-    weak:   { width: 'w-1/4',  color: 'bg-red-500',    text: 'text-red-500',    label: 'Weak'   },
-    fair:   { width: 'w-2/4',  color: 'bg-yellow-500', text: 'text-yellow-600', label: 'Fair'   },
-    strong: { width: 'w-full', color: 'bg-green-500',  text: 'text-green-600',  label: 'Strong' },
-    empty:  { width: 'w-0',    color: '',              text: '',                label: ''       },
+    weak: {
+      width: "w-1/4",
+      color: "bg-red-500",
+      text: "text-red-500",
+      label: "Weak",
+    },
+    fair: {
+      width: "w-2/4",
+      color: "bg-yellow-500",
+      text: "text-yellow-600",
+      label: "Fair",
+    },
+    strong: {
+      width: "w-full",
+      color: "bg-green-500",
+      text: "text-green-600",
+      label: "Strong",
+    },
+    empty: { width: "w-0", color: "", text: "", label: "" },
   }[strength];
 
   return (
@@ -77,90 +104,116 @@ export default function RegisterPage() {
   const { login } = useAuthStore();
 
   const [form, setForm] = useState({
-    name: '', email: '', password: '', confirmPassword: '',
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [errors, setErrors] = useState<Record<Fields, string>>({
-    name: '', email: '', password: '', confirmPassword: '',
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
   const [touched, setTouched] = useState<Record<Fields, boolean>>({
-    name: false, email: false, password: false, confirmPassword: false,
+    name: false,
+    email: false,
+    password: false,
+    confirmPassword: false,
   });
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const validateField = (field: Fields, value: string): string => {
     switch (field) {
-      case 'name':            return validateName(value).message;
-      case 'email':           return validateEmail(value).message;
-      case 'password':        return validatePassword(value).message;
-      case 'confirmPassword': return validateConfirmPassword(form.password, value).message;
-      default: return '';
+      case "name":
+        return validateName(value).message;
+      case "email":
+        return validateEmail(value).message;
+      case "password":
+        return validatePassword(value).message;
+      case "confirmPassword":
+        return validateConfirmPassword(form.password, value).message;
+      default:
+        return "";
     }
   };
 
   const handleChange = (field: Fields, value: string) => {
-    setForm(f => ({ ...f, [field]: value }));
+    setForm((f) => ({ ...f, [field]: value }));
     if (touched[field]) {
-      setErrors(e => ({ ...e, [field]: validateField(field, value) }));
-      if (field === 'password' && touched.confirmPassword) {
-        setErrors(e => ({
+      setErrors((e) => ({ ...e, [field]: validateField(field, value) }));
+      if (field === "password" && touched.confirmPassword) {
+        setErrors((e) => ({
           ...e,
-          confirmPassword: validateConfirmPassword(value, form.confirmPassword).message,
+          confirmPassword: validateConfirmPassword(value, form.confirmPassword)
+            .message,
         }));
       }
     }
   };
 
   const handleBlur = (field: Fields) => {
-    setTouched(t => ({ ...t, [field]: true }));
-    setErrors(e => ({ ...e, [field]: validateField(field, form[field]) }));
+    setTouched((t) => ({ ...t, [field]: true }));
+    setErrors((e) => ({ ...e, [field]: validateField(field, form[field]) }));
   };
 
   const validateAll = (): boolean => {
     const errs: Record<Fields, string> = {
-      name:            validateName(form.name).message,
-      email:           validateEmail(form.email).message,
-      password:        validatePassword(form.password).message,
-      confirmPassword: validateConfirmPassword(form.password, form.confirmPassword).message,
+      name: validateName(form.name).message,
+      email: validateEmail(form.email).message,
+      password: validatePassword(form.password).message,
+      confirmPassword: validateConfirmPassword(
+        form.password,
+        form.confirmPassword,
+      ).message,
     };
     setErrors(errs);
-    setTouched({ name: true, email: true, password: true, confirmPassword: true });
+    setTouched({
+      name: true,
+      email: true,
+      password: true,
+      confirmPassword: true,
+    });
     return !Object.values(errs).some(Boolean);
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError('');
+    setFormError("");
 
     if (!validateAll()) return;
 
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          name:     form.name.trim(),
-          email:    form.email.trim().toLowerCase(),
-          password: form.password,
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: form.name.trim(),
+            email: form.email.trim().toLowerCase(),
+            password: form.password,
+          }),
+        },
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (data.error?.toLowerCase().includes('email')) {
-          setErrors(e => ({ ...e, email: data.error }));
+        if (data.error?.toLowerCase().includes("email")) {
+          setErrors((e) => ({ ...e, email: data.error }));
         } else {
-          setFormError(data.error || 'Registration failed. Please try again.');
+          setFormError(data.error || "Registration failed. Please try again.");
         }
         return;
       }
 
       login(data.token, data.user);
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch {
-      setFormError('Network error. Please try again.');
+      setFormError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -185,7 +238,6 @@ export default function RegisterPage() {
         </CardHeader>
 
         <CardContent className="space-y-5 pt-0">
-
           <GoogleSignIn />
 
           <div className="relative">
@@ -208,7 +260,10 @@ export default function RegisterPage() {
 
             {/* Full Name */}
             <div className="space-y-1">
-              <label htmlFor="name" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <label
+                htmlFor="name"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Full Name *
               </label>
               <Input
@@ -216,12 +271,14 @@ export default function RegisterPage() {
                 type="text"
                 placeholder="John Doe"
                 value={form.name}
-                onChange={e => handleChange('name', e.target.value)}
-                onBlur={() => handleBlur('name')}
+                onChange={(e) => handleChange("name", e.target.value)}
+                onBlur={() => handleBlur("name")}
                 maxLength={80}
                 aria-invalid={!!errors.name}
                 className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
-                  errors.name ? 'border-destructive focus:border-destructive' : ''
+                  errors.name
+                    ? "border-destructive focus:border-destructive"
+                    : ""
                 }`}
               />
               <FieldError message={errors.name} />
@@ -229,7 +286,10 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div className="space-y-1">
-              <label htmlFor="email" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <label
+                htmlFor="email"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Email *
               </label>
               <Input
@@ -237,11 +297,13 @@ export default function RegisterPage() {
                 type="email"
                 placeholder="you@example.com"
                 value={form.email}
-                onChange={e => handleChange('email', e.target.value)}
-                onBlur={() => handleBlur('email')}
+                onChange={(e) => handleChange("email", e.target.value)}
+                onBlur={() => handleBlur("email")}
                 aria-invalid={!!errors.email}
                 className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
-                  errors.email ? 'border-destructive focus:border-destructive' : ''
+                  errors.email
+                    ? "border-destructive focus:border-destructive"
+                    : ""
                 }`}
               />
               <FieldError message={errors.email} />
@@ -249,7 +311,10 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div className="space-y-1">
-              <label htmlFor="password" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <label
+                htmlFor="password"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Password *
               </label>
               <Input
@@ -257,12 +322,14 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="e.g. Chandu@13k"
                 value={form.password}
-                onChange={e => handleChange('password', e.target.value)}
-                onBlur={() => handleBlur('password')}
+                onChange={(e) => handleChange("password", e.target.value)}
+                onBlur={() => handleBlur("password")}
                 maxLength={13}
                 aria-invalid={!!errors.password}
                 className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
-                  errors.password ? 'border-destructive focus:border-destructive' : ''
+                  errors.password
+                    ? "border-destructive focus:border-destructive"
+                    : ""
                 }`}
               />
               {/* Live strength bar + checklist — shown as soon as typing starts */}
@@ -274,7 +341,10 @@ export default function RegisterPage() {
 
             {/* Confirm Password */}
             <div className="space-y-1">
-              <label htmlFor="confirm-password" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <label
+                htmlFor="confirm-password"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Confirm Password *
               </label>
               <Input
@@ -282,12 +352,16 @@ export default function RegisterPage() {
                 type="password"
                 placeholder="••••••••"
                 value={form.confirmPassword}
-                onChange={e => handleChange('confirmPassword', e.target.value)}
-                onBlur={() => handleBlur('confirmPassword')}
+                onChange={(e) =>
+                  handleChange("confirmPassword", e.target.value)
+                }
+                onBlur={() => handleBlur("confirmPassword")}
                 maxLength={13}
                 aria-invalid={!!errors.confirmPassword}
                 className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
-                  errors.confirmPassword ? 'border-destructive focus:border-destructive' : ''
+                  errors.confirmPassword
+                    ? "border-destructive focus:border-destructive"
+                    : ""
                 }`}
               />
               <FieldError message={errors.confirmPassword} />
@@ -298,13 +372,16 @@ export default function RegisterPage() {
               className="w-full h-11 font-semibold tracking-wide text-sm mt-1"
               disabled={loading}
             >
-              {loading ? 'Creating account…' : 'Create Account'}
+              {loading ? "Creating account…" : "Create Account"}
             </Button>
           </form>
 
           <div className="text-center text-sm text-muted-foreground pt-1">
-            Already have an account?{' '}
-            <Link href="/login" className="text-primary font-semibold hover:underline underline-offset-4">
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="text-primary font-semibold hover:underline underline-offset-4"
+            >
               Sign in
             </Link>
           </div>

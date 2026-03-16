@@ -1,78 +1,87 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from '@/components/ui/card';
-import { useAuthStore } from '@/lib/store';
-import { GoogleSignIn } from '@/components/GoogleSignIn';
-import { ThemeToggle } from '@/components/ThemeToggle';
-import { FieldError } from '@/components/Fielderror';
-import { validateEmail, validatePassword } from '@/lib/validations';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useAuthStore } from "@/lib/store";
+import { GoogleSignIn } from "@/components/GoogleSignIn";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { FieldError } from "@/components/Fielderror";
+import { validateEmail, validatePassword } from "@/lib/validations";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuthStore();
 
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState({ email: '', password: '' });
-  const [touched, setTouched]   = useState({ email: false, password: false });
-  const [formError, setFormError] = useState('');
-  const [loading, setLoading]   = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({ email: "", password: "" });
+  const [touched, setTouched] = useState({ email: false, password: false });
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleBlur = (field: 'email' | 'password') => {
-    setTouched(t => ({ ...t, [field]: true }));
-    if (field === 'email') {
+  const handleBlur = (field: "email" | "password") => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    if (field === "email") {
       const r = validateEmail(email);
-      setFieldErrors(e => ({ ...e, email: r.valid ? '' : r.message }));
+      setFieldErrors((e) => ({ ...e, email: r.valid ? "" : r.message }));
     }
-    if (field === 'password') {
+    if (field === "password") {
       const r = validatePassword(password);
-      setFieldErrors(e => ({ ...e, password: r.valid ? '' : r.message }));
+      setFieldErrors((e) => ({ ...e, password: r.valid ? "" : r.message }));
     }
   };
 
   const validate = (): boolean => {
     const emailErr = validateEmail(email).message;
-    const passErr  = validatePassword(password).message;
+    const passErr = validatePassword(password).message;
     setFieldErrors({ email: emailErr, password: passErr });
     return !emailErr && !passErr;
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError('');
+    setFormError("");
     setTouched({ email: true, password: true });
 
     if (!validate()) return;
 
     setLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          email:    email.trim().toLowerCase(),
-          password,
-        }),
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            password,
+          }),
+        },
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
-        setFormError(data.error || 'Invalid email or password. Please try again.');
+        setFormError(
+          data.error || "Invalid email or password. Please try again.",
+        );
         return;
       }
 
       login(data.token, data.user);
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch {
-      setFormError('Network error. Please try again.');
+      setFormError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -97,7 +106,6 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-5 pt-0">
-
           <GoogleSignIn />
 
           <div className="relative">
@@ -119,7 +127,10 @@ export default function LoginPage() {
 
             {/* Email */}
             <div className="space-y-1">
-              <label htmlFor="email" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <label
+                htmlFor="email"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Email *
               </label>
               <Input
@@ -127,17 +138,22 @@ export default function LoginPage() {
                 type="email"
                 placeholder="you@example.com"
                 value={email}
-                onChange={e => {
+                onChange={(e) => {
                   setEmail(e.target.value);
                   if (touched.email) {
                     const r = validateEmail(e.target.value);
-                    setFieldErrors(err => ({ ...err, email: r.valid ? '' : r.message }));
+                    setFieldErrors((err) => ({
+                      ...err,
+                      email: r.valid ? "" : r.message,
+                    }));
                   }
                 }}
-                onBlur={() => handleBlur('email')}
+                onBlur={() => handleBlur("email")}
                 aria-invalid={!!fieldErrors.email}
                 className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
-                  fieldErrors.email ? 'border-destructive focus:border-destructive' : ''
+                  fieldErrors.email
+                    ? "border-destructive focus:border-destructive"
+                    : ""
                 }`}
               />
               <FieldError message={fieldErrors.email} />
@@ -145,7 +161,10 @@ export default function LoginPage() {
 
             {/* Password */}
             <div className="space-y-1">
-              <label htmlFor="password" className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <label
+                htmlFor="password"
+                className="text-xs font-semibold uppercase tracking-widest text-muted-foreground"
+              >
                 Password *
               </label>
               <Input
@@ -153,18 +172,23 @@ export default function LoginPage() {
                 type="password"
                 placeholder="e.g. Chandu@13k"
                 value={password}
-                onChange={e => {
+                onChange={(e) => {
                   setPassword(e.target.value);
                   if (touched.password) {
                     const r = validatePassword(e.target.value);
-                    setFieldErrors(err => ({ ...err, password: r.valid ? '' : r.message }));
+                    setFieldErrors((err) => ({
+                      ...err,
+                      password: r.valid ? "" : r.message,
+                    }));
                   }
                 }}
-                onBlur={() => handleBlur('password')}
+                onBlur={() => handleBlur("password")}
                 aria-invalid={!!fieldErrors.password}
                 maxLength={13}
                 className={`h-11 bg-muted/40 border-border/60 focus:border-primary focus:bg-background transition-colors placeholder:text-muted-foreground/40 ${
-                  fieldErrors.password ? 'border-destructive focus:border-destructive' : ''
+                  fieldErrors.password
+                    ? "border-destructive focus:border-destructive"
+                    : ""
                 }`}
               />
               <FieldError message={fieldErrors.password} />
@@ -181,13 +205,16 @@ export default function LoginPage() {
               className="w-full h-11 font-semibold tracking-wide text-sm mt-1"
               disabled={loading}
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? "Signing in…" : "Sign In"}
             </Button>
           </form>
 
           <div className="text-center text-sm text-muted-foreground pt-1">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-primary font-semibold hover:underline underline-offset-4">
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/register"
+              className="text-primary font-semibold hover:underline underline-offset-4"
+            >
               Sign up
             </Link>
           </div>

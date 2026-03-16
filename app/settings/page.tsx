@@ -1,24 +1,46 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/store';
-import { api } from '@/lib/api';
-import { useTheme } from 'next-themes';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Layout from '@/components/Layout';
-import { WhatsAppQRDisplay } from '@/components/WhatsAppQRDisplay';
-import { FieldError } from '@/components/Fielderror';
-import { validateName, validatePhone, validateWhatsApp } from '@/lib/validations';
-import { Copy, Check, MessageCircle } from 'lucide-react';
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/store";
+import { api } from "@/lib/api";
+import { useTheme } from "next-themes";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Layout from "@/components/Layout";
+import { WhatsAppQRDisplay } from "@/components/WhatsAppQRDisplay";
+import { FieldError } from "@/components/Fielderror";
+import {
+  validateName,
+  validatePhone,
+  validateWhatsApp,
+} from "@/lib/validations";
+import {
+  Copy,
+  Check,
+  MessageCircle,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  AlertTriangle,
+  RefreshCw,
+  Loader2,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
-const SANDBOX_NUMBER = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER || '+14155238886';
-const SANDBOX_CODE   = process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE   || 'join scientific-lungs';
+const SANDBOX_NUMBER =
+  process.env.NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER || "+14155238886";
+const SANDBOX_CODE =
+  process.env.NEXT_PUBLIC_TWILIO_SANDBOX_CODE || "join scientific-lungs";
 
-// ── Inline copy button ─────────────────────────────────────────────────────
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -33,15 +55,230 @@ function CopyButton({ text }: { text: string }) {
       className="shrink-0 p-1 rounded hover:bg-muted transition-colors"
       title="Copy"
     >
-      {copied
-        ? <Check className="w-3.5 h-3.5 text-green-500" />
-        : <Copy className="w-3.5 h-3.5 text-muted-foreground" />
-      }
+      {copied ? (
+        <Check className="w-3.5 h-3.5 text-green-500" />
+      ) : (
+        <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+      )}
     </button>
   );
 }
 
-// ── WhatsApp join instructions — shown to EVERY user ───────────────────────
+type MyStatus = {
+  number: string | null;
+  joined: boolean;
+  sessionActive: boolean;
+  lastMessageAt: string | null;
+  failReason: string | null;
+};
+
+function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
+  const [status, setStatus] = useState<MyStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetch = useCallback(async () => {
+    if (!whatsappNumber) return;
+    setLoading(true);
+    try {
+      const data = await api.get("/whatsapp/my-status");
+      setStatus(data);
+    } catch {
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [whatsappNumber]);
+
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
+
+  if (!whatsappNumber) return null;
+
+  if (loading && !status) {
+    return (
+      <Card>
+        <CardContent className="flex justify-center py-6">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!status) return null;
+
+  const isActive = status.joined && status.sessionActive;
+  const isJoinedNotActive = status.joined && !status.sessionActive;
+  const isNotJoined = !status.joined;
+
+  const lastMsgFormatted = status.lastMessageAt
+    ? new Date(status.lastMessageAt).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : null;
+
+  let hoursAgo: number | null = null;
+  if (status.lastMessageAt) {
+    hoursAgo = Math.floor(
+      (Date.now() - new Date(status.lastMessageAt).getTime()) /
+        (1000 * 60 * 60),
+    );
+  }
+
+  return (
+    <Card
+      className={
+        isActive
+          ? "border-green-200 dark:border-green-800"
+          : isJoinedNotActive
+            ? "border-amber-200 dark:border-amber-800"
+            : "border-red-200 dark:border-red-900"
+      }
+    >
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            {isActive ? (
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+            ) : isJoinedNotActive ? (
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+            ) : (
+              <XCircle className="w-4 h-4 text-red-500" />
+            )}
+            Your WhatsApp Status
+          </CardTitle>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fetch}
+            className="h-7 w-7"
+            title="Refresh"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3">
+        {/* Status badges row */}
+        <div className="flex flex-wrap gap-2">
+          {/* Joined */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">
+              Sandbox joined:
+            </span>
+            {status.joined ? (
+              <Badge
+                variant="secondary"
+                className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[11px] px-2"
+              >
+                Yes
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[11px] px-2"
+              >
+                No
+              </Badge>
+            )}
+          </div>
+
+          {/* Session */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">24h session:</span>
+            {status.sessionActive ? (
+              <Badge
+                variant="secondary"
+                className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[11px] px-2"
+              >
+                Active
+              </Badge>
+            ) : (
+              <Badge
+                variant="secondary"
+                className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[11px] px-2"
+              >
+                Expired
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Last message time */}
+        {lastMsgFormatted && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            Last message:{" "}
+            <strong className="text-foreground">{lastMsgFormatted}</strong>
+            {hoursAgo !== null && (
+              <span
+                className={
+                  hoursAgo >= 20
+                    ? "text-amber-600 dark:text-amber-400 font-medium"
+                    : ""
+                }
+              >
+                ({hoursAgo === 0 ? "just now" : `${hoursAgo}h ago`})
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* State-specific guidance */}
+        {isActive && hoursAgo !== null && hoursAgo >= 20 && (
+          <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              Your session expires in ~{24 - hoursAgo}h. Send any message to{" "}
+              <span className="font-mono font-semibold">{SANDBOX_NUMBER}</span>{" "}
+              soon to keep reminders active.
+            </p>
+          </div>
+        )}
+
+        {isActive && (hoursAgo === null || hoursAgo < 20) && (
+          <div className="p-2.5 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg">
+            <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed">
+              You're all set. WhatsApp reminders will be delivered to{" "}
+              <span className="font-mono font-semibold">{status.number}</span>.
+            </p>
+          </div>
+        )}
+
+        {isJoinedNotActive && (
+          <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              Your 24h session has expired. Send <strong>any message</strong>{" "}
+              (e.g. "hi") to{" "}
+              <span className="font-mono font-semibold">{SANDBOX_NUMBER}</span>{" "}
+              on WhatsApp to reactivate. Reminders will fall back to email until
+              you do.
+            </p>
+          </div>
+        )}
+
+        {isNotJoined && (
+          <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg">
+            <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
+              You haven't joined the sandbox yet. Follow the steps below to
+              activate WhatsApp reminders. Until then, reminders will be sent by
+              email.
+            </p>
+          </div>
+        )}
+
+        {status.failReason && (
+          <p className="text-xs text-muted-foreground italic">
+            {status.failReason}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function WhatsAppJoinInstructions() {
   return (
     <Card className="border-green-200 dark:border-green-800">
@@ -54,10 +291,8 @@ function WhatsAppJoinInstructions() {
           Two quick steps — done once, works forever
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-5">
-
-        {/* Step 1 */}
-        <div className="space-y-2">
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
           <p className="text-sm font-semibold">
             Step 1 — Save this number in your phone
           </p>
@@ -67,143 +302,145 @@ function WhatsAppJoinInstructions() {
           </div>
         </div>
 
-        {/* Step 2 */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <p className="text-sm font-semibold">
-            Step 2 — Send this exact message on WhatsApp to that number
+            Step 2 — Send this exact message on WhatsApp
           </p>
           <div className="flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg font-mono text-sm">
             <span className="flex-1 select-all">{SANDBOX_CODE}</span>
             <CopyButton text={SANDBOX_CODE} />
           </div>
           <p className="text-xs text-muted-foreground">
-            Send it exactly as shown — including the word "join".
+            Send exactly as shown, including the word "join".
           </p>
         </div>
 
-        {/* Step 3 */}
         <div className="space-y-1">
           <p className="text-sm font-semibold">
-            Step 3 — Add your WhatsApp number below and save
+            Step 3 — Save your number in the form below
           </p>
           <p className="text-xs text-muted-foreground">
-            Use the form below to save your number (with country code, digits only).
+            Enter your number with country code (digits only).
           </p>
         </div>
 
-        {/* Daily re-ping reminder */}
         <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
           <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold mb-1">
             Keep your session active — send once a day
           </p>
           <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-            WhatsApp sandbox requires you to send <strong>any message</strong> to{' '}
-            <span className="font-mono">{SANDBOX_NUMBER}</span> at least once every 24 hours.
-            If you miss a day, your reminder won't arrive and you'll need to message again to reactivate.
-            Send <span className="font-mono">"hi"</span> or anything — that's enough.
+            WhatsApp sandbox requires you to send <strong>any message</strong>{" "}
+            to <span className="font-mono">{SANDBOX_NUMBER}</span> at least once
+            every 24 hours. A simple <span className="font-mono">"hi"</span> is
+            enough. If you miss a day your reminder won't arrive — just message
+            again to reactivate.
           </p>
         </div>
-
-        {/* Info note */}
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-            This is a Twilio sandbox — required for testing. Once you've joined and messaged today,
-            your midnight reminder will be delivered automatically. No other action needed.
-          </p>
-        </div>
-
       </CardContent>
     </Card>
   );
 }
 
-// ── Main settings page ─────────────────────────────────────────────────────
 export default function SettingsPage() {
   const router = useRouter();
   const { user, token, setUser } = useAuthStore();
   const { setTheme } = useTheme();
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const isAdmin = (user as any)?.isAdmin === true;
 
   const [formData, setFormData] = useState({
-    name:               user?.name || '',
-    email:              user?.email || '',
-    phone:              user?.phone || '',
-    whatsappNumber:     user?.whatsappNumber || '',
-    reminderTime:       user?.preferences?.reminderTime || '09:00',
-    reminderType:       user?.preferences?.reminderType || 'daily',
-    theme:              user?.preferences?.theme || 'dark',
-    whatsappReminders:  user?.preferences?.whatsappReminders || false,
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phone || "",
+    whatsappNumber: user?.whatsappNumber || "",
+    reminderTime: user?.preferences?.reminderTime || "09:00",
+    reminderType: user?.preferences?.reminderType || "daily",
+    theme: user?.preferences?.theme || "dark",
+    whatsappReminders: user?.preferences?.whatsappReminders || false,
   });
 
-  const [fieldErrors, setFieldErrors] = useState({ name: '', phone: '', whatsappNumber: '' });
+  const [fieldErrors, setFieldErrors] = useState({
+    name: "",
+    phone: "",
+    whatsappNumber: "",
+  });
 
   useEffect(() => {
     if (user) {
       setFormData({
-        name:               user.name || '',
-        email:              user.email || '',
-        phone:              user.phone || '',
-        whatsappNumber:     user.whatsappNumber || '',
-        reminderTime:       user.preferences?.reminderTime || '09:00',
-        reminderType:       user.preferences?.reminderType || 'daily',
-        theme:              user.preferences?.theme || 'dark',
-        whatsappReminders:  user.preferences?.whatsappReminders || false,
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        whatsappNumber: user.whatsappNumber || "",
+        reminderTime: user.preferences?.reminderTime || "09:00",
+        reminderType: user.preferences?.reminderType || "daily",
+        theme: user.preferences?.theme || "dark",
+        whatsappReminders: user.preferences?.whatsappReminders || false,
       });
     }
   }, [user]);
 
   useEffect(() => {
-    if (!token) router.push('/login');
+    if (!token) router.push("/login");
   }, [token, router]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value, type } = e.target;
-    const newVal = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-    setFormData(prev => ({ ...prev, [name]: newVal }));
-    if (name === 'name') {
+    const newVal =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+    setFormData((prev) => ({ ...prev, [name]: newVal }));
+    if (name === "name") {
       const r = validateName(String(newVal));
-      setFieldErrors(fe => ({ ...fe, name: r.valid ? '' : r.message }));
+      setFieldErrors((fe) => ({ ...fe, name: r.valid ? "" : r.message }));
     }
-    if (name === 'phone') {
+    if (name === "phone") {
       const r = validatePhone(String(newVal));
-      setFieldErrors(fe => ({ ...fe, phone: r.valid ? '' : r.message }));
+      setFieldErrors((fe) => ({ ...fe, phone: r.valid ? "" : r.message }));
     }
-    if (name === 'whatsappNumber') {
-      const r = String(newVal).trim() ? validateWhatsApp(String(newVal)) : { valid: true, message: '' };
-      setFieldErrors(fe => ({ ...fe, whatsappNumber: r.valid ? '' : r.message }));
+    if (name === "whatsappNumber") {
+      const r = String(newVal).trim()
+        ? validateWhatsApp(String(newVal))
+        : { valid: true, message: "" };
+      setFieldErrors((fe) => ({
+        ...fe,
+        whatsappNumber: r.valid ? "" : r.message,
+      }));
     }
   };
 
   const handleSaveProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const nameErr  = validateName(formData.name).message;
+    const nameErr = validateName(formData.name).message;
     const phoneErr = validatePhone(formData.phone).message;
-    setFieldErrors(fe => ({ ...fe, name: nameErr, phone: phoneErr }));
+    setFieldErrors((fe) => ({ ...fe, name: nameErr, phone: phoneErr }));
     if (nameErr || phoneErr) return;
 
-    setLoading(true); setMessage(''); setError('');
+    setLoading(true);
+    setMessage("");
+    setError("");
     try {
       const response = await api.auth.updateProfile({
-        name:     formData.name.trim(),
-        phone:    formData.phone.trim(),
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
         whatsappNumber: formData.whatsappNumber.trim(),
         preferences: {
-          theme:             formData.theme,
-          reminderTime:      formData.reminderTime,
-          reminderType:      formData.reminderType,
+          theme: formData.theme,
+          reminderTime: formData.reminderTime,
+          reminderType: formData.reminderType,
           whatsappReminders: formData.whatsappReminders,
         },
       });
       setUser(response);
       setTheme(formData.theme);
-      setMessage('Profile updated successfully!');
-      setTimeout(() => setMessage(''), 3500);
+      setMessage("Profile updated successfully!");
+      setTimeout(() => setMessage(""), 3500);
     } catch (err: any) {
-      setError(err.error || 'Failed to update profile.');
+      setError(err.error || "Failed to update profile.");
     } finally {
       setLoading(false);
     }
@@ -213,36 +450,51 @@ export default function SettingsPage() {
     if (e) e.preventDefault();
     if (formData.whatsappNumber.trim()) {
       const waErr = validateWhatsApp(formData.whatsappNumber).message;
-      setFieldErrors(fe => ({ ...fe, whatsappNumber: waErr }));
+      setFieldErrors((fe) => ({ ...fe, whatsappNumber: waErr }));
       if (waErr) return;
     }
-    setLoading(true); setMessage(''); setError('');
+    setLoading(true);
+    setMessage("");
+    setError("");
     try {
       const response = await api.auth.updateProfile({
         whatsappNumber: formData.whatsappNumber.trim(),
         preferences: {
-          theme:             formData.theme,
-          reminderTime:      formData.reminderTime,
-          reminderType:      formData.reminderType,
+          theme: formData.theme,
+          reminderTime: formData.reminderTime,
+          reminderType: formData.reminderType,
           whatsappReminders: formData.whatsappReminders,
         },
       });
       setUser(response);
-      setMessage('WhatsApp settings saved!');
-      setTimeout(() => setMessage(''), 3500);
+      setMessage("WhatsApp settings saved!");
+      setTimeout(() => setMessage(""), 3500);
     } catch (err: any) {
-      setError(err.error || 'Failed to update WhatsApp settings.');
+      setError(err.error || "Failed to update WhatsApp settings.");
     } finally {
       setLoading(false);
     }
   };
+
+  const successBanner = message && (
+    <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">
+      ✓ {message}
+    </div>
+  );
+  const errorBanner = error && (
+    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">
+      {error}
+    </div>
+  );
 
   return (
     <Layout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your account and preferences</p>
+          <p className="text-muted-foreground">
+            Manage your account and preferences
+          </p>
         </div>
 
         <Tabs defaultValue="profile">
@@ -261,30 +513,66 @@ export default function SettingsPage() {
                 <CardDescription>Fields marked * are required.</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSaveProfile} className="space-y-6" noValidate>
-                  {message && <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">✓ {message}</div>}
-                  {error  && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
-
+                <form
+                  onSubmit={handleSaveProfile}
+                  className="space-y-6"
+                  noValidate
+                >
+                  {successBanner}
+                  {errorBanner}
                   <div className="space-y-1">
-                    <label htmlFor="name" className="text-sm font-medium">Full Name *</label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleChange} maxLength={80} className={fieldErrors.name ? 'border-destructive' : ''} />
+                    <label htmlFor="name" className="text-sm font-medium">
+                      Full Name *
+                    </label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      maxLength={80}
+                      className={fieldErrors.name ? "border-destructive" : ""}
+                    />
                     <FieldError message={fieldErrors.name} />
                   </div>
-
                   <div className="space-y-1">
-                    <label htmlFor="email" className="text-sm font-medium">Email</label>
-                    <Input id="email" name="email" value={formData.email} disabled className="opacity-50 cursor-not-allowed" />
-                    <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
+                    <label htmlFor="email" className="text-sm font-medium">
+                      Email
+                    </label>
+                    <Input
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      disabled
+                      className="opacity-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Email cannot be changed.
+                    </p>
                   </div>
-
                   <div className="space-y-1">
-                    <label htmlFor="phone" className="text-sm font-medium">Phone Number <span className="font-normal text-muted-foreground">(optional)</span></label>
-                    <Input id="phone" name="phone" type="tel" placeholder="+91 9440667351" value={formData.phone} onChange={handleChange} className={fieldErrors.phone ? 'border-destructive' : ''} />
+                    <label htmlFor="phone" className="text-sm font-medium">
+                      Phone Number{" "}
+                      <span className="font-normal text-muted-foreground">
+                        (optional)
+                      </span>
+                    </label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+91 9440667351"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className={fieldErrors.phone ? "border-destructive" : ""}
+                    />
                     <FieldError message={fieldErrors.phone} />
-                    <p className="text-xs text-muted-foreground">Format: +country_code number</p>
+                    <p className="text-xs text-muted-foreground">
+                      Format: +country_code number
+                    </p>
                   </div>
-
-                  <Button type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save Changes'}</Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Saving…" : "Save Changes"}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -299,28 +587,57 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSaveProfile} className="space-y-6">
-                  {message && <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">✓ {message}</div>}
-                  {error  && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
-
+                  {successBanner}
+                  {errorBanner}
                   <div className="space-y-2">
-                    <label htmlFor="theme" className="text-sm font-medium">Theme</label>
-                    <select id="theme" name="theme" value={formData.theme} onChange={handleChange} className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground">
+                    <label htmlFor="theme" className="text-sm font-medium">
+                      Theme
+                    </label>
+                    <select
+                      id="theme"
+                      name="theme"
+                      value={formData.theme}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                    >
                       <option value="light">Light</option>
                       <option value="dark">Dark</option>
                     </select>
                   </div>
-
                   <div className="space-y-2">
-                    <label htmlFor="reminderTime" className="text-sm font-medium">Daily Reminder Time</label>
-                    <Input id="reminderTime" name="reminderTime" type="time" value={formData.reminderTime} onChange={handleChange} />
+                    <label
+                      htmlFor="reminderTime"
+                      className="text-sm font-medium"
+                    >
+                      Daily Reminder Time
+                    </label>
+                    <Input
+                      id="reminderTime"
+                      name="reminderTime"
+                      type="time"
+                      value={formData.reminderTime}
+                      onChange={handleChange}
+                    />
                   </div>
-
                   <div className="flex items-center gap-2">
-                    <input id="whatsappReminders" name="whatsappReminders" type="checkbox" checked={formData.whatsappReminders} onChange={handleChange} className="w-4 h-4 rounded border-border" />
-                    <label htmlFor="whatsappReminders" className="text-sm font-medium cursor-pointer">Enable WhatsApp Reminders</label>
+                    <input
+                      id="whatsappReminders"
+                      name="whatsappReminders"
+                      type="checkbox"
+                      checked={formData.whatsappReminders}
+                      onChange={handleChange}
+                      className="w-4 h-4 rounded border-border"
+                    />
+                    <label
+                      htmlFor="whatsappReminders"
+                      className="text-sm font-medium cursor-pointer"
+                    >
+                      Enable WhatsApp Reminders
+                    </label>
                   </div>
-
-                  <Button type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save Preferences'}</Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Saving…" : "Save Preferences"}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -328,24 +645,37 @@ export default function SettingsPage() {
 
           {/* ─── WhatsApp ─── */}
           <TabsContent value="whatsapp" className="space-y-4 mt-6">
+            {/* 1. Personal session status — every user sees their own */}
+            <MySandboxStatus whatsappNumber={formData.whatsappNumber} />
 
-            {/* Join instructions — visible to EVERYONE */}
+            {/* 2. Join instructions */}
             <WhatsAppJoinInstructions />
 
-            {/* Number + reminder type form — visible to EVERYONE */}
+            {/* 3. Number + reminder type form */}
             <Card>
               <CardHeader>
                 <CardTitle>Your WhatsApp Number</CardTitle>
-                <CardDescription>Save the number you used to join the sandbox</CardDescription>
+                <CardDescription>
+                  Save the number you used to join the sandbox
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {message && <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-sm text-green-800 dark:bg-green-900/30 dark:text-green-400 dark:border-green-700">✓ {message}</div>}
-                {error  && <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm text-destructive">{error}</div>}
-
-                <form onSubmit={handleSaveWhatsApp} className="space-y-4" noValidate>
+                {successBanner}
+                {errorBanner}
+                <form
+                  onSubmit={handleSaveWhatsApp}
+                  className="space-y-4"
+                  noValidate
+                >
                   <div className="space-y-1">
-                    <label htmlFor="whatsappNumber" className="text-sm font-medium">
-                      WhatsApp Number <span className="text-muted-foreground font-normal">(country code + digits, no + or spaces)</span>
+                    <label
+                      htmlFor="whatsappNumber"
+                      className="text-sm font-medium"
+                    >
+                      WhatsApp Number{" "}
+                      <span className="text-muted-foreground font-normal">
+                        (country code + digits, no + or spaces)
+                      </span>
                     </label>
                     <Input
                       id="whatsappNumber"
@@ -353,18 +683,32 @@ export default function SettingsPage() {
                       placeholder="e.g. 919440667351"
                       value={formData.whatsappNumber}
                       onChange={handleChange}
-                      className={fieldErrors.whatsappNumber ? 'border-destructive' : ''}
+                      className={
+                        fieldErrors.whatsappNumber ? "border-destructive" : ""
+                      }
                     />
                     <FieldError message={fieldErrors.whatsappNumber} />
                     <p className="text-xs text-muted-foreground">
-                      Examples: <code className="bg-muted px-1 rounded">919440667351</code> (India +91) ·{' '}
-                      <code className="bg-muted px-1 rounded">14155238886</code> (US +1) ·{' '}
-                      <code className="bg-muted px-1 rounded">447700900123</code> (UK +44)
+                      Examples:{" "}
+                      <code className="bg-muted px-1 rounded">
+                        919440667351
+                      </code>{" "}
+                      (India +91) ·{" "}
+                      <code className="bg-muted px-1 rounded">14155238886</code>{" "}
+                      (US +1) ·{" "}
+                      <code className="bg-muted px-1 rounded">
+                        447700900123
+                      </code>{" "}
+                      (UK +44)
                     </p>
                   </div>
-
                   <div className="space-y-2">
-                    <label htmlFor="settingsReminderType" className="text-sm font-medium">Reminder Type</label>
+                    <label
+                      htmlFor="settingsReminderType"
+                      className="text-sm font-medium"
+                    >
+                      Reminder Type
+                    </label>
                     <select
                       id="settingsReminderType"
                       name="reminderType"
@@ -372,20 +716,23 @@ export default function SettingsPage() {
                       onChange={handleChange}
                       className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
                     >
-                      <option value="daily">Daily (at your per-habit scheduled time)</option>
-                      <option value="weekly">Weekly Summary (Sunday 9 PM IST)</option>
+                      <option value="daily">
+                        Daily (at your per-habit scheduled time)
+                      </option>
+                      <option value="weekly">
+                        Weekly Summary (Sunday 9 PM IST)
+                      </option>
                       <option value="both">Both Daily & Weekly</option>
                     </select>
                   </div>
-
                   <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving…' : 'Save WhatsApp Settings'}
+                    {loading ? "Saving…" : "Save WhatsApp Settings"}
                   </Button>
                 </form>
               </CardContent>
             </Card>
 
-            {/* Admin-only controls */}
+            {/* 4. Admin-only controls */}
             {isAdmin && (
               <div className="pt-1">
                 <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2 px-0.5">
@@ -394,13 +741,14 @@ export default function SettingsPage() {
                 <WhatsAppQRDisplay />
               </div>
             )}
-
           </TabsContent>
 
           {/* ─── About ─── */}
           <TabsContent value="about" className="space-y-4 mt-6">
             <Card>
-              <CardHeader><CardTitle>About Habit Tracker</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>About Habit Tracker</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div>
                   <h3 className="font-semibold mb-2">Version</h3>
@@ -420,12 +768,13 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2">Support</h3>
-                  <p className="text-muted-foreground text-sm">mr.chandu.22@gmail.com</p>
+                  <p className="text-muted-foreground text-sm">
+                    mr.chandu.22@gmail.com
+                  </p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
-
         </Tabs>
       </div>
     </Layout>

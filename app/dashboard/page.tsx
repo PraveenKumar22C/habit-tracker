@@ -86,7 +86,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!_hydrated) return;
-    if (!token) { router.push("/login"); return; }
+    if (!token) {
+      router.push("/login");
+      return;
+    }
 
     const fetchData = async () => {
       try {
@@ -101,7 +104,7 @@ export default function DashboardPage() {
             api.auth.me(),
             api.analytics.getDaily(
               thirtyDaysAgo.toISOString().split("T")[0],
-              today.toISOString().split("T")[0]
+              today.toISOString().split("T")[0],
             ),
           ]);
 
@@ -114,19 +117,16 @@ export default function DashboardPage() {
           milestonesReached: analyticsData.milestoneReached,
         });
 
-        // Last 14 days for the mini chart
         setDailyData(dailyAnalytics.slice(-14));
 
-        // Per-habit bar data
         setHabitBarData(
           habitsData.map((h: any) => ({
             name: h.name.length > 10 ? h.name.slice(0, 10) + "…" : h.name,
             rate: h.stats?.completionRate || 0,
             color: h.color || "#1D9E75",
-          }))
+          })),
         );
 
-        // Today's completed count from the last daily entry
         const todayStr = today.toISOString().split("T")[0];
         const todayEntry = dailyAnalytics.find((d: any) => d.date === todayStr);
         setTodayCompleted(todayEntry?.completed || 0);
@@ -231,9 +231,7 @@ export default function DashboardPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="relative">
-                    <div
-                      className={`text-4xl font-bold ${s.valueClass} mb-2`}
-                    >
+                    <div className={`text-4xl font-bold ${s.valueClass} mb-2`}>
                       {s.value}
                     </div>
                     <p className="text-sm text-muted-foreground font-medium">
@@ -283,7 +281,6 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
               {/* Today's progress ring-style card */}
               <Card className="flex flex-col justify-between">
                 <CardHeader className="pb-2">
@@ -300,11 +297,7 @@ export default function DashboardPage() {
                       {todayPct}%
                     </span>
                     <span className="text-4xl">
-                      {todayPct === 100
-                        ? "🎉"
-                        : todayPct >= 50
-                        ? "💪"
-                        : "🎯"}
+                      {todayPct === 100 ? "🎉" : todayPct >= 50 ? "💪" : "🎯"}
                     </span>
                   </div>
                   <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
@@ -312,8 +305,7 @@ export default function DashboardPage() {
                       className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${todayPct}%`,
-                        background:
-                          "linear-gradient(90deg, #a855f7, #3b82f6)",
+                        background: "linear-gradient(90deg, #a855f7, #3b82f6)",
                       }}
                     />
                   </div>
@@ -321,8 +313,8 @@ export default function DashboardPage() {
                     {todayPct === 100
                       ? "All habits completed! Amazing work 🔥"
                       : todayPct === 0
-                      ? "Start checking in your habits!"
-                      : `${activeHabits.length - todayCompleted} habit${activeHabits.length - todayCompleted !== 1 ? "s" : ""} remaining`}
+                        ? "Start checking in your habits!"
+                        : `${activeHabits.length - todayCompleted} habit${activeHabits.length - todayCompleted !== 1 ? "s" : ""} remaining`}
                   </p>
                 </CardContent>
               </Card>

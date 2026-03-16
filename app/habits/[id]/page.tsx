@@ -1,18 +1,33 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { useAuthStore, useHabitStore } from '@/lib/store';
-import { api } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import Layout from '@/components/Layout';
-import { Flame, TrendingUp, Calendar, Edit2, Trash2, Zap, X, Check } from 'lucide-react';
-import { toLocalDateStr, isToday } from '@/lib/dateUtils';
-import { PageLoader } from '@/components/Pageloader';
-import { DeleteModal } from '@/components/Deletemodal';
+import { useEffect, useState } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useAuthStore, useHabitStore } from "@/lib/store";
+import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import Layout from "@/components/Layout";
+import {
+  Flame,
+  TrendingUp,
+  Calendar,
+  Edit2,
+  Trash2,
+  Zap,
+  X,
+  Check,
+} from "lucide-react";
+import { toLocalDateStr, isToday } from "@/lib/dateUtils";
+import { PageLoader } from "@/components/Pageloader";
+import { DeleteModal } from "@/components/Deletemodal";
 
 export default function HabitDetailPage() {
   const params = useParams();
@@ -34,18 +49,18 @@ export default function HabitDetailPage() {
 
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({
-    name: '',
-    description: '',
-    color: '#3b82f6',
+    name: "",
+    description: "",
+    color: "#3b82f6",
     reminderEnabled: false,
-    reminderTime: '09:00',
+    reminderTime: "09:00",
   });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
 
@@ -61,14 +76,14 @@ export default function HabitDetailPage() {
         setLogs(logsData);
         setStats(statsData);
         setEditForm({
-          name: habitData.name ?? '',
-          description: habitData.description ?? '',
-          color: habitData.color ?? '#3b82f6',
+          name: habitData.name ?? "",
+          description: habitData.description ?? "",
+          color: habitData.color ?? "#3b82f6",
           reminderEnabled: habitData.reminder?.enabled === true,
-          reminderTime: habitData.reminder?.time ?? '09:00',
+          reminderTime: habitData.reminder?.time ?? "09:00",
         });
       } catch {
-        router.push('/habits');
+        router.push("/habits");
       } finally {
         setLoading(false);
       }
@@ -92,7 +107,7 @@ export default function HabitDetailPage() {
       });
 
       if (response.alreadyCompleted) {
-        setCheckInError('Already checked in today!');
+        setCheckInError("Already checked in today!");
         return;
       }
 
@@ -111,7 +126,9 @@ export default function HabitDetailPage() {
       setStats(newStats);
       updateHabit(newHabit);
     } catch (error: any) {
-      setCheckInError(error?.message || error?.error || 'Check-in failed. Please try again.');
+      setCheckInError(
+        error?.message || error?.error || "Check-in failed. Please try again.",
+      );
     } finally {
       setCheckInLoading(false);
     }
@@ -134,7 +151,7 @@ export default function HabitDetailPage() {
       updateHabit(updated);
       setEditing(false);
     } catch (error: any) {
-      setEditError(error?.message || error?.error || 'Failed to update habit.');
+      setEditError(error?.message || error?.error || "Failed to update habit.");
     } finally {
       setEditLoading(false);
     }
@@ -145,11 +162,11 @@ export default function HabitDetailPage() {
     try {
       await api.habits.delete(habitId);
       removeHabit(habitId);
-      router.push('/habits');
+      router.push("/habits");
     } catch (error: any) {
       setDeleteLoading(false);
       setDeleteModalOpen(false);
-      setCheckInError(error?.message || 'Failed to delete habit.');
+      setCheckInError(error?.message || "Failed to delete habit.");
     }
   };
 
@@ -173,10 +190,10 @@ export default function HabitDetailPage() {
 
   const todayStr = toLocalDateStr(new Date());
   const todayLog = logs.find(
-    log => toLocalDateStr(new Date(log.date)) === todayStr && log.completed
+    (log) => toLocalDateStr(new Date(log.date)) === todayStr && log.completed,
   );
 
-  const completedThisWeek = logs.filter(log => {
+  const completedThisWeek = logs.filter((log) => {
     if (!log.completed) return false;
     const logDate = new Date(log.date);
     const weekAgo = new Date();
@@ -201,20 +218,29 @@ export default function HabitDetailPage() {
           <div className="flex items-start gap-4 flex-1">
             <div
               className="w-16 h-16 rounded-lg flex-shrink-0"
-              style={{ backgroundColor: editing ? editForm.color : habit.color }}
+              style={{
+                backgroundColor: editing ? editForm.color : habit.color,
+              }}
             />
             <div className="flex-1">
               {editing ? (
                 <div className="space-y-3">
                   <Input
                     value={editForm.name}
-                    onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((p) => ({ ...p, name: e.target.value }))
+                    }
                     className="text-2xl font-bold h-12"
                     placeholder="Habit name"
                   />
                   <Input
                     value={editForm.description}
-                    onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                    onChange={(e) =>
+                      setEditForm((p) => ({
+                        ...p,
+                        description: e.target.value,
+                      }))
+                    }
                     placeholder="Description (optional)"
                   />
                   <div className="flex items-center gap-2">
@@ -222,7 +248,9 @@ export default function HabitDetailPage() {
                     <input
                       type="color"
                       value={editForm.color}
-                      onChange={e => setEditForm(p => ({ ...p, color: e.target.value }))}
+                      onChange={(e) =>
+                        setEditForm((p) => ({ ...p, color: e.target.value }))
+                      }
                       className="w-10 h-10 rounded cursor-pointer border border-border"
                     />
                   </div>
@@ -233,20 +261,35 @@ export default function HabitDetailPage() {
                         id="editReminderEnabled"
                         type="checkbox"
                         checked={editForm.reminderEnabled}
-                        onChange={e => setEditForm(p => ({ ...p, reminderEnabled: e.target.checked }))}
+                        onChange={(e) =>
+                          setEditForm((p) => ({
+                            ...p,
+                            reminderEnabled: e.target.checked,
+                          }))
+                        }
                         className="w-4 h-4 rounded border-border"
                       />
-                      <label htmlFor="editReminderEnabled" className="text-sm font-medium cursor-pointer">
+                      <label
+                        htmlFor="editReminderEnabled"
+                        className="text-sm font-medium cursor-pointer"
+                      >
                         Enable Reminder
                       </label>
                     </div>
                     {editForm.reminderEnabled && (
                       <div className="space-y-1">
-                        <label className="text-sm font-medium">Reminder Time</label>
+                        <label className="text-sm font-medium">
+                          Reminder Time
+                        </label>
                         <Input
                           type="time"
                           value={editForm.reminderTime}
-                          onChange={e => setEditForm(p => ({ ...p, reminderTime: e.target.value }))}
+                          onChange={(e) =>
+                            setEditForm((p) => ({
+                              ...p,
+                              reminderTime: e.target.value,
+                            }))
+                          }
                         />
                       </div>
                     )}
@@ -257,20 +300,24 @@ export default function HabitDetailPage() {
                     </div>
                   )}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={handleEdit} disabled={editLoading}>
+                    <Button
+                      size="sm"
+                      onClick={handleEdit}
+                      disabled={editLoading}
+                    >
                       <Check className="w-4 h-4 mr-1" />
-                      {editLoading ? 'Saving...' : 'Save'}
+                      {editLoading ? "Saving..." : "Save"}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
                         setEditForm({
-                          name: habit.name ?? '',
-                          description: habit.description ?? '',
-                          color: habit.color ?? '#3b82f6',
+                          name: habit.name ?? "",
+                          description: habit.description ?? "",
+                          color: habit.color ?? "#3b82f6",
                           reminderEnabled: habit.reminder?.enabled === true,
-                          reminderTime: habit.reminder?.time ?? '09:00',
+                          reminderTime: habit.reminder?.time ?? "09:00",
                         });
                         setEditError(null);
                         setEditing(false);
@@ -285,11 +332,17 @@ export default function HabitDetailPage() {
                 <>
                   <h1 className="text-4xl font-bold">{habit.name}</h1>
                   {habit.description && (
-                    <p className="text-muted-foreground mt-1">{habit.description}</p>
+                    <p className="text-muted-foreground mt-1">
+                      {habit.description}
+                    </p>
                   )}
                   <div className="flex gap-4 mt-4 text-sm">
-                    <span className="px-2 py-1 bg-muted rounded capitalize">{habit.category}</span>
-                    <span className="px-2 py-1 bg-muted rounded capitalize">{habit.frequency}</span>
+                    <span className="px-2 py-1 bg-muted rounded capitalize">
+                      {habit.category}
+                    </span>
+                    <span className="px-2 py-1 bg-muted rounded capitalize">
+                      {habit.frequency}
+                    </span>
                   </div>
                 </>
               )}
@@ -298,7 +351,12 @@ export default function HabitDetailPage() {
 
           {!editing && (
             <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={() => setEditing(true)} title="Edit habit">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setEditing(true)}
+                title="Edit habit"
+              >
                 <Edit2 className="w-4 h-4" />
               </Button>
               <Button
@@ -317,10 +375,12 @@ export default function HabitDetailPage() {
           <div className="p-6 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30 rounded-lg text-center space-y-2 animate-pulse">
             <div className="text-4xl">🎉</div>
             <h2 className="text-2xl font-bold">
-              {milestone ? `${milestone} Streak!` : 'Checked In!'}
+              {milestone ? `${milestone} Streak!` : "Checked In!"}
             </h2>
             <p className="text-muted-foreground">
-              {milestone ? `You've achieved a ${milestone} streak!` : 'Great job keeping up your habit!'}
+              {milestone
+                ? `You've achieved a ${milestone} streak!`
+                : "Great job keeping up your habit!"}
             </p>
           </div>
         )}
@@ -332,11 +392,36 @@ export default function HabitDetailPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatCard icon={<Flame className="w-5 h-5 text-orange-500" />} label="Current Streak" value={stats?.currentStreak || 0} unit="days" />
-          <StatCard icon={<Zap className="w-5 h-5 text-yellow-500" />} label="Longest Streak" value={habit.stats?.longestStreak || 0} unit="days" />
-          <StatCard icon={<TrendingUp className="w-5 h-5 text-blue-500" />} label="Completion Rate" value={stats?.completionRate || 0} unit="%" />
-          <StatCard icon={<Calendar className="w-5 h-5 text-green-500" />} label="This Week" value={completedThisWeek} unit="days" />
-          <StatCard icon={<Calendar className="w-5 h-5 text-purple-500" />} label="Total Completions" value={stats?.totalCompletions || 0} unit="times" />
+          <StatCard
+            icon={<Flame className="w-5 h-5 text-orange-500" />}
+            label="Current Streak"
+            value={stats?.currentStreak || 0}
+            unit="days"
+          />
+          <StatCard
+            icon={<Zap className="w-5 h-5 text-yellow-500" />}
+            label="Longest Streak"
+            value={habit.stats?.longestStreak || 0}
+            unit="days"
+          />
+          <StatCard
+            icon={<TrendingUp className="w-5 h-5 text-blue-500" />}
+            label="Completion Rate"
+            value={stats?.completionRate || 0}
+            unit="%"
+          />
+          <StatCard
+            icon={<Calendar className="w-5 h-5 text-green-500" />}
+            label="This Week"
+            value={completedThisWeek}
+            unit="days"
+          />
+          <StatCard
+            icon={<Calendar className="w-5 h-5 text-purple-500" />}
+            label="Total Completions"
+            value={stats?.totalCompletions || 0}
+            unit="times"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -346,9 +431,17 @@ export default function HabitDetailPage() {
             onClick={handleCheckIn}
             disabled={!!todayLog || checkInLoading}
           >
-            {checkInLoading ? 'Checking in...' : todayLog ? '✓ Done Today' : 'Check In Today'}
+            {checkInLoading
+              ? "Checking in..."
+              : todayLog
+                ? "✓ Done Today"
+                : "Check In Today"}
           </Button>
-          <Button size="lg" variant="outline" onClick={() => router.push('/habits')}>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => router.push("/habits")}
+          >
             Back to Habits
           </Button>
         </div>
@@ -364,7 +457,9 @@ export default function HabitDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Last 30 Days</CardTitle>
-                <CardDescription>Visual representation of your completions</CardDescription>
+                <CardDescription>
+                  Visual representation of your completions
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <CalendarView logs={logs} />
@@ -381,26 +476,39 @@ export default function HabitDetailPage() {
               <CardContent>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {logs.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No logs yet</p>
+                    <p className="text-muted-foreground text-center py-8">
+                      No logs yet
+                    </p>
                   ) : (
-                    logs.map(log => (
-                      <div key={log._id} className="flex justify-between items-center p-3 bg-muted rounded-lg">
+                    logs.map((log) => (
+                      <div
+                        key={log._id}
+                        className="flex justify-between items-center p-3 bg-muted rounded-lg"
+                      >
                         <div>
                           <p className="font-medium">
-                            {new Date(log.date).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric',
-                              timeZone: 'UTC', 
+                            {new Date(log.date).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                              timeZone: "UTC",
                             })}
                           </p>
-                          {log.notes && <p className="text-sm text-muted-foreground">{log.notes}</p>}
+                          {log.notes && (
+                            <p className="text-sm text-muted-foreground">
+                              {log.notes}
+                            </p>
+                          )}
                         </div>
                         <div className="flex items-center gap-2">
                           {log.completed && (
                             <>
-                              <span className="text-sm font-semibold text-green-600">✓</span>
-                              {log.milestone?.reached && <span className="text-lg">🎉</span>}
+                              <span className="text-sm font-semibold text-green-600">
+                                ✓
+                              </span>
+                              {log.milestone?.reached && (
+                                <span className="text-lg">🎉</span>
+                              )}
                             </>
                           )}
                         </div>
@@ -420,34 +528,40 @@ export default function HabitDetailPage() {
               <CardContent className="space-y-6">
                 <div>
                   <p className="font-medium mb-2">Frequency</p>
-                  <p className="text-muted-foreground capitalize">{habit.frequency}</p>
+                  <p className="text-muted-foreground capitalize">
+                    {habit.frequency}
+                  </p>
                 </div>
                 <div>
                   <p className="font-medium mb-2">Target</p>
                   <p className="text-muted-foreground">
-                    {habit.target?.value} {habit.target?.unit} per{' '}
-                    {habit.frequency === 'daily' ? 'day' : 'week'}
+                    {habit.target?.value} {habit.target?.unit} per{" "}
+                    {habit.frequency === "daily" ? "day" : "week"}
                   </p>
                 </div>
                 <div>
                   <p className="font-medium mb-2">Reminder</p>
                   {habit.reminder?.enabled ? (
-                    <p className="text-muted-foreground">Daily at {habit.reminder.time}</p>
+                    <p className="text-muted-foreground">
+                      Daily at {habit.reminder.time}
+                    </p>
                   ) : (
                     <p className="text-muted-foreground">Not enabled</p>
                   )}
                 </div>
                 <div>
                   <p className="font-medium mb-2">Status</p>
-                  <p className="text-muted-foreground">{habit.isActive ? 'Active' : 'Paused'}</p>
+                  <p className="text-muted-foreground">
+                    {habit.isActive ? "Active" : "Paused"}
+                  </p>
                 </div>
                 <div>
                   <p className="font-medium mb-2">Started</p>
                   <p className="text-muted-foreground">
-                    {new Date(habit.startDate).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
+                    {new Date(habit.startDate).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
                     })}
                   </p>
                 </div>
@@ -460,7 +574,17 @@ export default function HabitDetailPage() {
   );
 }
 
-function StatCard({ icon, label, value, unit }: { icon: React.ReactNode; label: string; value: number; unit: string }) {
+function StatCard({
+  icon,
+  label,
+  value,
+  unit,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  unit: string;
+}) {
   return (
     <Card>
       <CardContent className="flex items-center gap-3">
@@ -468,7 +592,10 @@ function StatCard({ icon, label, value, unit }: { icon: React.ReactNode; label: 
         <div>
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="text-2xl font-bold">
-            {value} <span className="text-sm font-normal text-muted-foreground">{unit}</span>
+            {value}{" "}
+            <span className="text-sm font-normal text-muted-foreground">
+              {unit}
+            </span>
           </p>
         </div>
       </CardContent>
@@ -482,10 +609,18 @@ function CalendarView({ logs }: { logs: any[] }) {
   thirtyDaysAgo.setDate(today.getDate() - 30);
 
   const days: any[] = [];
-  for (let d = new Date(thirtyDaysAgo); d <= today; d.setDate(d.getDate() + 1)) {
+  for (
+    let d = new Date(thirtyDaysAgo);
+    d <= today;
+    d.setDate(d.getDate() + 1)
+  ) {
     const dateStr = toLocalDateStr(new Date(d));
-    const log = logs.find(l => toLocalDateStr(new Date(l.date)) === dateStr);
-    days.push({ date: new Date(d), completed: log?.completed || false, dateStr });
+    const log = logs.find((l) => toLocalDateStr(new Date(l.date)) === dateStr);
+    days.push({
+      date: new Date(d),
+      completed: log?.completed || false,
+      dateStr,
+    });
   }
 
   return (
@@ -494,7 +629,9 @@ function CalendarView({ logs }: { logs: any[] }) {
         <div
           key={idx}
           className={`aspect-square rounded-md flex items-center justify-center text-xs font-semibold transition-colors ${
-            day.completed ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+            day.completed
+              ? "bg-green-500 text-white"
+              : "bg-muted text-muted-foreground"
           }`}
           title={day.date.toLocaleDateString()}
         >

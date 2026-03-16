@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useAuthStore } from '@/lib/store';
-import { PageLoader } from '@/components/Pageloader';
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/lib/store";
+import { PageLoader } from "@/components/Pageloader";
 
 export function AppLoader({ children }: { children: React.ReactNode }) {
   const _hydrated = useAuthStore((s) => s._hydrated);

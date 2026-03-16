@@ -6,15 +6,20 @@ class KeepAliveService {
   }
 
   start() {
-    const serverUrl = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
+    const serverUrl =
+      process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
 
     if (!serverUrl) {
-      console.log('[KeepAlive] No RENDER_EXTERNAL_URL set — skipping self-ping.');
-      console.log('[KeepAlive] Set RENDER_EXTERNAL_URL=https://your-app.onrender.com in env vars.');
+      console.log(
+        "[KeepAlive] No RENDER_EXTERNAL_URL set — skipping self-ping.",
+      );
+      console.log(
+        "[KeepAlive] Set RENDER_EXTERNAL_URL=https://your-app.onrender.com in env vars.",
+      );
       return;
     }
 
-    const pingUrl = `${serverUrl.replace(/\/$/, '')}/api/health`;
+    const pingUrl = `${serverUrl.replace(/\/$/, "")}/api/health`;
     console.log(`[KeepAlive] Started — pinging ${pingUrl} every 14 minutes`);
 
     this._ping(pingUrl);
@@ -25,7 +30,7 @@ class KeepAliveService {
     if (this._timer) {
       clearInterval(this._timer);
       this._timer = null;
-      console.log('[KeepAlive] Stopped.');
+      console.log("[KeepAlive] Stopped.");
     }
   }
 

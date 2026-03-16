@@ -1,14 +1,14 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const reminderLogSchema = new mongoose.Schema({
   habitId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Habit',
+    ref: "Habit",
     required: true,
   },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: true,
   },
   date: {
@@ -21,8 +21,8 @@ const reminderLogSchema = new mongoose.Schema({
   },
   reminderType: {
     type: String,
-    enum: ['morning', 'evening', 'weekly'],
-    default: 'morning',
+    enum: ["morning", "evening", "weekly"],
+    default: "morning",
   },
   sentAt: {
     type: Date,
@@ -34,8 +34,8 @@ const reminderLogSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'sent', 'failed'],
-    default: 'pending',
+    enum: ["pending", "sent", "failed"],
+    default: "pending",
   },
   error: {
     type: String,
@@ -51,4 +51,4 @@ reminderLogSchema.index({ habitId: 1, date: 1 });
 reminderLogSchema.index({ userId: 1, date: 1 });
 reminderLogSchema.index({ reminderSent: 1, date: 1 });
 
-export default mongoose.model('ReminderLog', reminderLogSchema);
+export default mongoose.model("ReminderLog", reminderLogSchema);

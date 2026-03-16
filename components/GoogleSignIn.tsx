@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/store';
-import { useState, useEffect, useRef } from 'react';
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/store";
+import { useState, useEffect, useRef } from "react";
 
 declare global {
   interface Window {
@@ -13,7 +13,7 @@ declare global {
 export function GoogleSignIn() {
   const router = useRouter();
   const { login } = useAuthStore();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -21,28 +21,28 @@ export function GoogleSignIn() {
   const handleCredentialResponse = async (response: any) => {
     try {
       setLoading(true);
-      setError('');
+      setError("");
 
       const apiResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/auth/google-login`,
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ accessToken: response.credential }),
-        }
+        },
       );
 
-      if (!apiResponse.ok) throw new Error('Failed to sign in');
+      if (!apiResponse.ok) throw new Error("Failed to sign in");
 
       const data = await apiResponse.json();
 
       if (data.token && data.user) {
         login(data.token, data.user);
-        router.push('/dashboard');
+        router.push("/dashboard");
       }
     } catch (err) {
-      console.error('Sign-in error:', err);
-      setError('Failed to sign in. Please try again.');
+      console.error("Sign-in error:", err);
+      setError("Failed to sign in. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -62,11 +62,11 @@ export function GoogleSignIn() {
     const buttonWidth = Math.min(Math.max(containerWidth, 200), 400);
 
     window.google.accounts.id.renderButton(buttonRef.current, {
-      theme: 'outline',
-      size: 'large',
+      theme: "outline",
+      size: "large",
       width: buttonWidth,
-      text: 'signin_with',
-      shape: 'rectangular',
+      text: "signin_with",
+      shape: "rectangular",
     });
   };
 
@@ -79,16 +79,16 @@ export function GoogleSignIn() {
     }
 
     const existingScript = document.querySelector(
-      'script[src="https://accounts.google.com/gsi/client"]'
+      'script[src="https://accounts.google.com/gsi/client"]',
     );
 
     if (existingScript) {
-      existingScript.addEventListener('load', initializeGoogle);
-      return () => existingScript.removeEventListener('load', initializeGoogle);
+      existingScript.addEventListener("load", initializeGoogle);
+      return () => existingScript.removeEventListener("load", initializeGoogle);
     }
 
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
     script.async = true;
     script.defer = true;
     script.onload = initializeGoogle;
@@ -102,14 +102,15 @@ export function GoogleSignIn() {
       }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, [clientId]);
 
   if (!clientId) {
     return (
       <div className="text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-950 p-2 rounded">
-        Google Sign-In not configured. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to .env.local
+        Google Sign-In not configured. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to
+        .env.local
       </div>
     );
   }

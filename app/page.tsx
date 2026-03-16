@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useAuthStore } from '@/lib/store';
-import { Button } from '@/components/ui/button';
-import { Flame, TrendingUp, Calendar, Trophy } from 'lucide-react';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuthStore } from "@/lib/store";
+import { Button } from "@/components/ui/button";
+import { Flame, TrendingUp, Calendar, Trophy } from "lucide-react";
 
 export default function Home() {
   const router = useRouter();
@@ -13,7 +13,7 @@ export default function Home() {
 
   useEffect(() => {
     if (token) {
-      router.push('/dashboard');
+      router.push("/dashboard");
     }
   }, [token, router]);
 
@@ -34,7 +34,9 @@ export default function Home() {
               <Button variant="outline">Sign In</Button>
             </Link>
             <Link href="/register">
-              <Button className="bg-primary hover:bg-primary/90">Get Started</Button>
+              <Button className="bg-primary hover:bg-primary/90">
+                Get Started
+              </Button>
             </Link>
           </div>
         </div>
@@ -46,8 +48,8 @@ export default function Home() {
             Build Better Habits, Celebrate Your Progress
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-            Track your daily habits, visualize your streaks, and reach your goals with beautiful
-            analytics and motivating milestones.
+            Track your daily habits, visualize your streaks, and reach your
+            goals with beautiful analytics and motivating milestones.
           </p>
           <div className="flex gap-4 justify-center pt-4">
             <Link href="/register">
@@ -90,7 +92,9 @@ export default function Home() {
           <div>
             <div className="text-4xl font-bold text-primary">100%</div>
             <p className="text-muted-foreground mt-2">Privacy First</p>
-            <p className="text-sm text-muted-foreground">Your data stays yours</p>
+            <p className="text-sm text-muted-foreground">
+              Your data stays yours
+            </p>
           </div>
           <div>
             <div className="text-4xl font-bold text-primary">Free</div>
@@ -100,13 +104,17 @@ export default function Home() {
           <div>
             <div className="text-4xl font-bold text-primary">Open</div>
             <p className="text-muted-foreground mt-2">Source</p>
-            <p className="text-sm text-muted-foreground">Transparent & hackable</p>
+            <p className="text-sm text-muted-foreground">
+              Transparent & hackable
+            </p>
           </div>
         </div>
       </div>
 
       <footer className="border-t border-border py-8 text-center text-muted-foreground">
-        <p className="max-w-7xl mx-auto">© 2024 HabitTrack. Start building better habits today.</p>
+        <p className="max-w-7xl mx-auto">
+          © 2024 HabitTrack. Start building better habits today.
+        </p>
       </footer>
     </div>
   );

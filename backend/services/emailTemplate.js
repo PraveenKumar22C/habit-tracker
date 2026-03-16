@@ -1,4 +1,3 @@
-// ─── Auth failure alert (existing, unchanged) ────────────────────────────────
 export const authFailureEmailTemplate = ({ error, context, settingsUrl }) => `
 <!DOCTYPE html>
 <html lang="en">
@@ -79,53 +78,45 @@ export const authFailureEmailTemplate = ({ error, context, settingsUrl }) => `
 </html>
 `;
 
-// ─── HTML escape helper ───────────────────────────────────────────────────────
 function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-// ─── Habit reminder email with WhatsApp activation box ───────────────────────
-//
-// This is the FALLBACK email sent when the user's WhatsApp sandbox session
-// is expired or they haven't joined. It looks like a normal product reminder.
-// At the bottom it has a beautiful "Get WhatsApp Reminders" box showing
-// exactly how to join — so they can fix their session themselves.
-//
-// @param {string}  userName      display name
-// @param {Array}   habits        [{ name, description? }]  — unfinished habits today
-// @param {string}  appUrl        dashboard link
-// @param {string}  sandboxNumber Twilio sandbox WhatsApp number
-// @param {string}  sandboxCode   e.g. "join scientific-lungs"
-// @param {string}  settingsUrl   link to Settings → WhatsApp tab
-//
 export const habitReminderEmailTemplate = ({
   userName,
   habits,
   appUrl,
-  sandboxNumber = '+14155238886',
-  sandboxCode   = 'join scientific-lungs',
+  sandboxNumber = "+14155238886",
+  sandboxCode = "join scientific-lungs",
   settingsUrl,
 }) => {
-  const rows = habits.map(h => `
+  const rows = habits
+    .map(
+      (h) => `
           <tr>
             <td style="padding:12px 0;border-bottom:1px solid #242424;">
               <p style="margin:0;font-size:14px;font-weight:600;color:#f0f0f0;line-height:1.4;">
                 ${escapeHtml(h.name)}
               </p>
-              ${h.description
-                ? `<p style="margin:3px 0 0;font-size:12px;color:#71717a;line-height:1.5;">${escapeHtml(h.description)}</p>`
-                : ''}
+              ${
+                h.description
+                  ? `<p style="margin:3px 0 0;font-size:12px;color:#71717a;line-height:1.5;">${escapeHtml(h.description)}</p>`
+                  : ""
+              }
             </td>
-          </tr>`).join('');
+          </tr>`,
+    )
+    .join("");
 
-  const count    = habits.length;
-  const countTxt = count === 1
-    ? `<strong style="color:#f0f0f0;">1 habit</strong> waiting for today`
-    : `<strong style="color:#f0f0f0;">${count} habits</strong> waiting for today`;
+  const count = habits.length;
+  const countTxt =
+    count === 1
+      ? `<strong style="color:#f0f0f0;">1 habit</strong> waiting for today`
+      : `<strong style="color:#f0f0f0;">${count} habits</strong> waiting for today`;
 
   const whatsappBox = `
         <!-- ── WhatsApp activation box ── -->

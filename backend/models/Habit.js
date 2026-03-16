@@ -1,9 +1,9 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const habitSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: "User",
     required: true,
   },
   name: {
@@ -13,21 +13,29 @@ const habitSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    default: '',
+    default: "",
   },
   category: {
     type: String,
-    enum: ['health', 'fitness', 'learning', 'productivity', 'mindfulness', 'social', 'other'],
-    default: 'other',
+    enum: [
+      "health",
+      "fitness",
+      "learning",
+      "productivity",
+      "mindfulness",
+      "social",
+      "other",
+    ],
+    default: "other",
   },
   color: {
     type: String,
-    default: '#3b82f6',
+    default: "#3b82f6",
   },
   frequency: {
     type: String,
-    enum: ['daily', 'weekly', 'custom'],
-    default: 'daily',
+    enum: ["daily", "weekly", "custom"],
+    default: "daily",
   },
   target: {
     value: {
@@ -36,8 +44,8 @@ const habitSchema = new mongoose.Schema({
     },
     unit: {
       type: String,
-      default: 'times',
-      enum: ['times', 'hours', 'minutes', 'km', 'pages', 'items'],
+      default: "times",
+      enum: ["times", "hours", "minutes", "km", "pages", "items"],
     },
   },
   reminder: {
@@ -47,7 +55,7 @@ const habitSchema = new mongoose.Schema({
     },
     time: {
       type: String,
-      default: '09:00',
+      default: "09:00",
     },
   },
   isActive: {
@@ -86,4 +94,4 @@ const habitSchema = new mongoose.Schema({
   },
 });
 
-export default mongoose.model('Habit', habitSchema);
+export default mongoose.model("Habit", habitSchema);

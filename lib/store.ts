@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 export interface User {
   _id: string;
@@ -9,9 +9,9 @@ export interface User {
   profileImage?: string;
   isAdmin?: boolean;
   preferences: {
-    theme: 'light' | 'dark';
+    theme: "light" | "dark";
     reminderTime: string;
-    reminderType?: 'daily' | 'weekly' | 'both';
+    reminderType?: "daily" | "weekly" | "both";
     whatsappReminders: boolean;
   };
   stats: {
@@ -63,8 +63,9 @@ interface AuthStore {
 }
 
 export const useAuthStore = create<AuthStore>((set) => {
-  const storedToken = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  if (typeof window !== 'undefined') {
+  const storedToken =
+    typeof window !== "undefined" ? localStorage.getItem("token") : null;
+  if (typeof window !== "undefined") {
     setTimeout(() => set({ _hydrated: true }), 0);
   }
 
@@ -79,9 +80,9 @@ export const useAuthStore = create<AuthStore>((set) => {
     setToken: (token) => {
       set({ token });
       if (token) {
-        localStorage.setItem('token', token);
+        localStorage.setItem("token", token);
       } else {
-        localStorage.removeItem('token');
+        localStorage.removeItem("token");
       }
     },
 
@@ -89,12 +90,12 @@ export const useAuthStore = create<AuthStore>((set) => {
 
     login: (token: string, user: User) => {
       set({ token, user });
-      localStorage.setItem('token', token);
+      localStorage.setItem("token", token);
     },
 
     logout: () => {
       set({ user: null, token: null });
-      localStorage.removeItem('token');
+      localStorage.removeItem("token");
     },
   };
 });
@@ -120,12 +121,14 @@ export const useHabitStore = create<HabitStore>((set) => ({
   updateHabit: (habit) =>
     set((state) => ({
       habits: state.habits.map((h) => (h._id === habit._id ? habit : h)),
-      selectedHabit: state.selectedHabit?._id === habit._id ? habit : state.selectedHabit,
+      selectedHabit:
+        state.selectedHabit?._id === habit._id ? habit : state.selectedHabit,
     })),
   removeHabit: (habitId) =>
     set((state) => ({
       habits: state.habits.filter((h) => h._id !== habitId),
-      selectedHabit: state.selectedHabit?._id === habitId ? null : state.selectedHabit,
+      selectedHabit:
+        state.selectedHabit?._id === habitId ? null : state.selectedHabit,
     })),
   setSelectedHabit: (habit) => set({ selectedHabit: habit }),
   setLoading: (loading) => set({ loading }),

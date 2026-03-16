@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-export function PageLoader({ message = 'Loading...' }: { message?: string }) {
+export function PageLoader({ message = "Loading..." }: { message?: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-96 gap-4">
       <div className="relative w-16 h-16">
