@@ -593,6 +593,101 @@ class HabitReminderService {
       failReason: u.whatsappSandbox?.failReason ?? null,
     }));
   }
+  
+//  Manually trigger reminders for specific user + specific habits
+
+async sendManualReminders({ userId, habitIds, isMissedStyle = false, forceBypassWindow = true }) {
+  const stats = {
+    whatsappSent: 0,
+    whatsappFailed: 0,
+    emailSent: 0,
+    emailFailed: 0,
+    skipped: 0,
+  };
+
+  try {
+    const user = await User.findById(userId).lean();
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const habits = await Habit.find({
+      _id: { $in: habitIds },
+      userId: user._id,
+      isActive: true,
+      "reminder.enabled": true,
+    }).lean();
+
+    if (!habits.length) {
+      stats.skipped = habitIds.length;
+      return stats;
+    }
+
+    const now = new Date();
+    const todayIST = new Date(now.getTime() + IST_OFFSET_MS);
+    todayIST.setUTCHours(0, 0, 0, 0);
+
+    const waCapable =
+      whatsappClient.isConnected() &&
+      user.whatsappNumber &&
+      hasActiveSandboxSession(user);
+
+    for (const habit of habits) {
+      // Skip if already sent today (safety)
+      const alreadySent = await ReminderLog.findOne({
+        habitId: habit._id,
+        userId: user._id,
+        date: todayIST,
+        status: "sent",
+      });
+
+      if (alreadySent && !forceBypassWindow) {
+        stats.skipped++;
+        continue;
+      }
+
+      let outcome;
+      if (waCapable) {
+        outcome = await this._sendWhatsAppReminder(
+          user,
+          habit,
+          todayIST,
+          isMissedStyle
+        );
+        if (outcome === "sent") stats.whatsappSent++;
+        else if (outcome === "session") {
+          stats.whatsappFailed++;
+          // fallback to email below
+        } else {
+          stats.whatsappFailed++;
+        }
+      }
+
+      // Fallback or only email
+      if (!waCapable || outcome !== "sent") {
+        const emailOutcome = await this._sendEmailFallback(
+          user,
+          [habit], // single habit
+          todayIST,
+          isMissedStyle
+        );
+        if (emailOutcome === "sent") stats.emailSent++;
+        else if (emailOutcome === "skipped") stats.skipped++;
+        else stats.emailFailed++;
+      }
+    }
+
+    console.log(
+      `[ManualReminder] user:${userId} habits:${habitIds.length} ` +
+      `WA:${stats.whatsappSent} Email:${stats.emailSent} skipped:${stats.skipped}`
+    );
+
+    return stats;
+  } catch (err) {
+    console.error("[sendManualReminders] Fatal:", err);
+    throw err;
+  }
+}
 }
 
 export default new HabitReminderService();

@@ -9,6 +9,7 @@ import habitRoutes from "./routes/habits.js";
 import analyticsRoutes from "./routes/analytics.js";
 import remindersRoutes from "./routes/reminders.js";
 import whatsappRoutes from "./routes/whatsapp.js";
+import adminRoutes from "./routes/admin.js";
 import User from "./models/User.js";
 import reminderScheduler from "./services/reminderScheduler.js";
 import keepAlive from "./services/keepAlive.js";
@@ -97,6 +98,7 @@ app.use("/api/habits", habitRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/reminders", remindersRoutes);
 app.use("/api/whatsapp", whatsappRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

@@ -29,6 +29,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuthStore } from "@/lib/store";
+import { ManualReminderTrigger } from "./ManualReminderTrigger";
 
 const SANDBOX_NUMBER =
   process.env.NEXT_PUBLIC_TWILIO_SANDBOX_NUMBER || "+14155238886";
@@ -572,6 +573,15 @@ export function WhatsAppQRDisplay() {
                 </p>
               </div>
             </div>
+          </AccordionSection>
+          <AccordionSection
+            title="Manually Trigger Reminder for Any User"
+            description="Debug tool: force-send reminder to any user right now"
+            icon={<Send className="w-4 h-4" />}
+            accentColor="text-purple-600 dark:text-purple-400"
+            defaultOpen={false}
+          >
+            <ManualReminderTrigger />
           </AccordionSection>
         </div>
       )}
