@@ -4,6 +4,7 @@ import { authMiddleware } from "../middleware/auth.js";
 import User from "../models/User.js";
 import Habit from "../models/Habit.js";
 import habitReminderService from "../services/habitReminderService.js";
+import { sendReminderEmail } from "../services/emailReminderService.js";
 
 const router = express.Router();
 
@@ -85,6 +86,24 @@ router.post("/reminders/manual-trigger", authMiddleware, adminOnly, async (req, 
   } catch (err) {
     console.error("[manual-trigger] Error:", err);
     res.status(500).json({ error: err.message || "Failed to send manual reminders" });
+  }
+});
+
+router.post("/test-email", authMiddleware, adminOnly, async (req, res) => {
+  try {    
+    await sendReminderEmail(
+      { 
+        email: "mr.chandu.22@gmail.com", 
+        name: "Mr. Chandu" 
+      },
+      [{ name: "Test Habit – Brevo Verified" }],
+      false // normal reminder, not missed
+    );
+    
+    res.json({ success: true, message: "Test email queued — check inbox/spam" });
+  } catch (err) {
+    console.error("[TEST-EMAIL] Failed:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
