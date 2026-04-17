@@ -62,19 +62,19 @@ function AccordionSection({
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-4 py-3 bg-muted/40 hover:bg-muted/70 transition-colors text-left"
       >
-        <div className="flex items-center gap-3">
-          <span className={accentColor}>{icon}</span>
-          <div>
-            <p className="text-sm font-semibold leading-tight">{title}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className={`${accentColor} shrink-0`}>{icon}</span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-tight truncate">{title}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
               {description}
             </p>
           </div>
         </div>
         {open ? (
-          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
         ) : (
-          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-2" />
         )}
       </button>
       {open && (
@@ -115,72 +115,14 @@ function SandboxStatusTable({
         No users with WhatsApp numbers yet.
       </p>
     );
+
+  const hasWarning = users.some((u) => !u.joined || !u.sessionActive);
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-border text-muted-foreground">
-            <th className="text-left py-2 pr-3 font-semibold">User</th>
-            <th className="text-left py-2 pr-3 font-semibold">Number</th>
-            <th className="text-left py-2 pr-3 font-semibold">Joined</th>
-            <th className="text-left py-2 pr-3 font-semibold">Session</th>
-            <th className="text-left py-2 font-semibold">Last msg</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {users.map((u, i) => (
-            <tr key={i} className="hover:bg-muted/30 transition-colors">
-              <td className="py-2 pr-3 font-medium max-w-[90px] truncate">
-                {u.name}
-              </td>
-              <td className="py-2 pr-3 font-mono text-muted-foreground">
-                {u.number}
-              </td>
-              <td className="py-2 pr-3">
-                {u.joined ? (
-                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Yes
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-red-500">
-                    <XCircle className="w-3 h-3" />
-                    No
-                  </span>
-                )}
-              </td>
-              <td className="py-2 pr-3">
-                {u.sessionActive ? (
-                  <Badge
-                    variant="secondary"
-                    className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[10px] px-1.5"
-                  >
-                    Active
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="secondary"
-                    className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[10px] px-1.5"
-                  >
-                    Expired
-                  </Badge>
-                )}
-              </td>
-              <td className="py-2 text-muted-foreground">
-                {u.lastMessageAt
-                  ? new Date(u.lastMessageAt).toLocaleString("en-IN", {
-                      timeZone: "Asia/Kolkata",
-                      dateStyle: "short",
-                      timeStyle: "short",
-                    })
-                  : "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {users.some((u) => !u.joined || !u.sessionActive) && (
-        <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
+    <div className="space-y-3">
+      {/* Warning banner — outside the scroll, always visible */}
+      {hasWarning && (
+        <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
           <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
             <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             Users with expired or no session will receive email reminders
@@ -188,6 +130,73 @@ function SandboxStatusTable({
           </p>
         </div>
       )}
+
+      {/* Scrollable table container — only the table scrolls */}
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-xs" style={{ minWidth: '420px' }}>
+          <thead>
+            <tr className="border-b border-border text-muted-foreground bg-muted/40">
+              <th className="text-left py-2 px-3 font-semibold w-[90px]">User</th>
+              <th className="text-left py-2 px-3 font-semibold w-[110px]">Number</th>
+              <th className="text-left py-2 px-3 font-semibold w-[70px]">Joined</th>
+              <th className="text-left py-2 px-3 font-semibold w-[80px]">Session</th>
+              <th className="text-left py-2 px-3 font-semibold">Last msg</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {users.map((u, i) => (
+              <tr key={i} className="hover:bg-muted/30 transition-colors">
+                <td className="py-2 px-3 font-medium max-w-[90px] truncate">
+                  {u.name}
+                </td>
+                <td className="py-2 px-3 font-mono text-muted-foreground truncate max-w-[110px]">
+                  {u.number}
+                </td>
+                <td className="py-2 px-3">
+                  {u.joined ? (
+                    <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="w-3 h-3 shrink-0" />
+                      Yes
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-red-500">
+                      <XCircle className="w-3 h-3 shrink-0" />
+                      No
+                    </span>
+                  )}
+                </td>
+                <td className="py-2 px-3">
+                  {u.sessionActive ? (
+                    /* ── CHANGED: green → blue in dark mode ── */
+                    <Badge
+                      variant="secondary"
+                      className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-[10px] px-1.5"
+                    >
+                      Active
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[10px] px-1.5"
+                    >
+                      Expired
+                    </Badge>
+                  )}
+                </td>
+                <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
+                  {u.lastMessageAt
+                    ? new Date(u.lastMessageAt).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })
+                    : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -195,20 +204,14 @@ function SandboxStatusTable({
 export function WhatsAppQRDisplay() {
   const { user } = useAuthStore();
 
-  const [connected, setConnected] = useState<boolean | null>(null);
+  const [connected, setConnected]           = useState<boolean | null>(null);
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null);
-  const [copied, setCopied] = useState<"number" | "code" | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<{
-    ok: boolean;
-    msg: string;
-  } | null>(null);
-  const [triggering, setTriggering] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<{
-    ok: boolean;
-    msg: string;
-  } | null>(null);
-  const [sandboxUsers, setSandboxUsers] = useState<SandboxUser[]>([]);
+  const [copied, setCopied]                 = useState<"number" | "code" | null>(null);
+  const [testing, setTesting]               = useState(false);
+  const [testResult, setTestResult]         = useState<{ ok: boolean; msg: string } | null>(null);
+  const [triggering, setTriggering]         = useState(false);
+  const [triggerResult, setTriggerResult]   = useState<{ ok: boolean; msg: string } | null>(null);
+  const [sandboxUsers, setSandboxUsers]     = useState<SandboxUser[]>([]);
   const [sandboxLoading, setSandboxLoading] = useState(false);
 
   const isAdmin = (user as any)?.isAdmin === true;
@@ -252,15 +255,9 @@ export function WhatsAppQRDisplay() {
     setTestResult(null);
     try {
       await api.post("/whatsapp/test-message", {});
-      setTestResult({
-        ok: true,
-        msg: "✅ Test message sent! Check your WhatsApp.",
-      });
+      setTestResult({ ok: true, msg: "✅ Test message sent! Check your WhatsApp." });
     } catch (err: any) {
-      setTestResult({
-        ok: false,
-        msg: err?.error || "Failed to send test message.",
-      });
+      setTestResult({ ok: false, msg: err?.error || "Failed to send test message." });
     } finally {
       setTesting(false);
     }
@@ -280,10 +277,7 @@ export function WhatsAppQRDisplay() {
       });
       if (isAdmin) fetchSandboxUsers();
     } catch (err: any) {
-      setTriggerResult({
-        ok: false,
-        msg: err?.error || "Failed to trigger check.",
-      });
+      setTriggerResult({ ok: false, msg: err?.error || "Failed to trigger check." });
     } finally {
       setTriggering(false);
     }
@@ -309,16 +303,16 @@ export function WhatsAppQRDisplay() {
             : "border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800"
         }
       >
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <CardHeader className="pb-3 px-4 sm:px-6">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
               {connected ? (
-                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
               ) : (
-                <XCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <XCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
               )}
-              <div>
-                <CardTitle className="text-base">Twilio WhatsApp</CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="text-base truncate">Twilio WhatsApp</CardTitle>
                 <CardDescription className="text-xs">
                   {connected
                     ? "Credentials configured — reminders active"
@@ -326,17 +320,12 @@ export function WhatsAppQRDisplay() {
                 </CardDescription>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={fetchStatus}
-              title="Refresh"
-            >
+            <Button variant="ghost" size="icon" onClick={fetchStatus} title="Refresh" className="shrink-0">
               <RefreshCw className="w-4 h-4" />
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="pt-0 space-y-2">
+        <CardContent className="pt-0 space-y-2 px-4 sm:px-6">
           <Badge
             variant="secondary"
             className={
@@ -353,14 +342,12 @@ export function WhatsAppQRDisplay() {
               <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                 <Clock className="w-3 h-3 shrink-0" />
                 Scheduler:{" "}
-                <strong>
-                  {schedulerStatus.running ? "Running" : "Stopped"}
-                </strong>
+                <strong>{schedulerStatus.running ? "Running" : "Stopped"}</strong>
               </p>
               {schedulerStatus.nextMissedCheck && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1.5 pl-4">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5 pl-4 break-words">
                   Next missed-habit check:{" "}
-                  <strong>{schedulerStatus.nextMissedCheck}</strong>
+                  <strong className="ml-1">{schedulerStatus.nextMissedCheck}</strong>
                 </p>
               )}
             </div>
@@ -383,10 +370,9 @@ export function WhatsAppQRDisplay() {
             accentColor="text-orange-500"
           >
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Runs the same job as the <strong>every-6-hour</strong>{" "}
-              missed-habit check. Finds habits whose reminder time was{" "}
-              <strong>6+ hours ago</strong> and are still not completed today —
-              sends "you missed your habit, it's not too late" message.
+              Runs the same job as the <strong>every-6-hour</strong> missed-habit check. Finds
+              habits whose reminder time was <strong>6+ hours ago</strong> and are still not
+              completed today — sends "you missed your habit, it's not too late" message.
               Processes users in batches of 5 with a 2s pause between batches.
             </p>
             <Button
@@ -414,7 +400,11 @@ export function WhatsAppQRDisplay() {
             )}
             {triggerResult && (
               <p
-                className={`text-xs font-medium leading-relaxed ${triggerResult.ok ? "text-green-600 dark:text-green-400" : "text-destructive"}`}
+                className={`text-xs font-medium leading-relaxed break-words ${
+                  triggerResult.ok
+                    ? "text-green-600 dark:text-green-400"
+                    : "text-destructive"
+                }`}
               >
                 {triggerResult.msg}
               </p>
@@ -428,7 +418,7 @@ export function WhatsAppQRDisplay() {
             icon={<Users className="w-4 h-4" />}
             accentColor="text-blue-500"
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
                 Users must have messaged the sandbox in the last 24h.
               </p>
@@ -436,7 +426,7 @@ export function WhatsAppQRDisplay() {
                 size="sm"
                 variant="ghost"
                 onClick={fetchSandboxUsers}
-                className="h-7 text-xs gap-1"
+                className="h-7 text-xs gap-1 shrink-0"
               >
                 <RefreshCw className="w-3 h-3" /> Refresh
               </Button>
@@ -462,9 +452,8 @@ export function WhatsAppQRDisplay() {
             accentColor="text-green-500"
           >
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Sends a test WhatsApp to the number saved in your profile. Make
-              sure your sandbox session is active first (send a message to the
-              sandbox number).
+              Sends a test WhatsApp to the number saved in your profile. Make sure your sandbox
+              session is active first (send a message to the sandbox number).
             </p>
             <Button
               onClick={sendTest}
@@ -482,7 +471,9 @@ export function WhatsAppQRDisplay() {
             </Button>
             {testResult && (
               <p
-                className={`text-sm font-medium ${testResult.ok ? "text-green-600 dark:text-green-400" : "text-destructive"}`}
+                className={`text-sm font-medium break-words ${
+                  testResult.ok ? "text-green-600 dark:text-green-400" : "text-destructive"
+                }`}
               >
                 {testResult.msg}
               </p>
@@ -502,12 +493,12 @@ export function WhatsAppQRDisplay() {
                   User opt-in steps (one time)
                 </p>
                 <p className="text-xs font-medium">1. Save this number:</p>
-                <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg font-mono text-xs">
-                  <span className="flex-1 select-all">{SANDBOX_NUMBER}</span>
+                <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg font-mono text-xs overflow-hidden">
+                  <span className="flex-1 select-all truncate">{SANDBOX_NUMBER}</span>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2"
+                    className="h-6 px-2 shrink-0"
                     onClick={() => copyText(SANDBOX_NUMBER, "number")}
                   >
                     {copied === "number" ? (
@@ -517,15 +508,13 @@ export function WhatsAppQRDisplay() {
                     )}
                   </Button>
                 </div>
-                <p className="text-xs font-medium">
-                  2. Send this exact message on WhatsApp:
-                </p>
-                <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg font-mono text-xs">
-                  <span className="flex-1 select-all">{SANDBOX_CODE}</span>
+                <p className="text-xs font-medium">2. Send this exact message on WhatsApp:</p>
+                <div className="flex items-center gap-2 p-2.5 bg-muted rounded-lg font-mono text-xs overflow-hidden">
+                  <span className="flex-1 select-all truncate">{SANDBOX_CODE}</span>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 px-2"
+                    className="h-6 px-2 shrink-0"
                     onClick={() => copyText(SANDBOX_CODE, "code")}
                   >
                     {copied === "code" ? (
@@ -536,8 +525,7 @@ export function WhatsAppQRDisplay() {
                   </Button>
                 </div>
                 <p className="text-xs font-medium">
-                  3. After joining — send any message once a day to keep the 24h
-                  session alive.
+                  3. After joining — send any message once a day to keep the 24h session alive.
                 </p>
               </div>
 
@@ -548,8 +536,7 @@ export function WhatsAppQRDisplay() {
                 <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg space-y-2">
                   <p className="text-xs text-blue-700 dark:text-blue-300">
                     <strong>
-                      Twilio Console → Messaging → Try WhatsApp → Sandbox
-                      settings
+                      Twilio Console → Messaging → Try WhatsApp → Sandbox settings
                     </strong>
                     <br />
                     Set <em>"WHEN A MESSAGE COMES IN"</em> to:
@@ -558,8 +545,8 @@ export function WhatsAppQRDisplay() {
                     {webhookUrl}
                   </div>
                   <p className="text-xs text-blue-700 dark:text-blue-300">
-                    Method: <strong>HTTP POST</strong>. This auto-marks sessions
-                    active when users message.
+                    Method: <strong>HTTP POST</strong>. This auto-marks sessions active when
+                    users message.
                   </p>
                 </div>
               </div>
@@ -567,13 +554,14 @@ export function WhatsAppQRDisplay() {
               <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
                 <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-2">
                   <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  Sandbox: only joined numbers get messages. Session expires
-                  after 24h. For production, apply for WhatsApp Business API
-                  through Twilio.
+                  Sandbox: only joined numbers get messages. Session expires after 24h. For
+                  production, apply for WhatsApp Business API through Twilio.
                 </p>
               </div>
             </div>
           </AccordionSection>
+
+          {/* 5. Manual reminder trigger */}
           <AccordionSection
             title="Manually Trigger Reminder for Any User"
             description="Debug tool: force-send reminder to any user right now"

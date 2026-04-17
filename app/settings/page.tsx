@@ -56,7 +56,7 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
   const [status, setStatus]   = useState<MyStatus | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetch = useCallback(async () => {
+  const fetchStatus = useCallback(async () => {
     if (!whatsappNumber) return;
     setLoading(true);
     try {
@@ -69,7 +69,7 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
     }
   }, [whatsappNumber]);
 
-  useEffect(() => { fetch(); }, [fetch]);
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
 
   if (!whatsappNumber) return null;
 
@@ -85,9 +85,9 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
 
   if (!status) return null;
 
-  const isActive = status.joined && status.sessionActive;
+  const isActive          = status.joined && status.sessionActive;
   const isJoinedNotActive = status.joined && !status.sessionActive;
-  const isNotJoined = !status.joined;
+  const isNotJoined       = !status.joined;
 
   const lastMsgFormatted = status.lastMessageAt
     ? new Date(status.lastMessageAt).toLocaleString('en-IN', {
@@ -99,7 +99,9 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
 
   let hoursAgo: number | null = null;
   if (status.lastMessageAt) {
-    hoursAgo = Math.floor((Date.now() - new Date(status.lastMessageAt).getTime()) / (1000 * 60 * 60));
+    hoursAgo = Math.floor(
+      (Date.now() - new Date(status.lastMessageAt).getTime()) / (1000 * 60 * 60)
+    );
   }
 
   return (
@@ -110,83 +112,91 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
           ? 'border-amber-200 dark:border-amber-800'
           : 'border-red-200 dark:border-red-900'
     }>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+      <CardHeader className="pb-2 px-4 sm:px-6">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 min-w-0">
             {isActive
-              ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+              ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
               : isJoinedNotActive
-                ? <AlertTriangle className="w-4 h-4 text-amber-500" />
-                : <XCircle className="w-4 h-4 text-red-500" />
+                ? <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                : <XCircle className="w-4 h-4 text-red-500 shrink-0" />
             }
-            Your WhatsApp Status
+            <span className="truncate">Your WhatsApp Status</span>
           </CardTitle>
-          <Button variant="ghost" size="icon" onClick={fetch} className="h-7 w-7" title="Refresh">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={fetchStatus}
+            className="h-7 w-7 shrink-0"
+            title="Refresh"
+          >
             <RefreshCw className="w-3.5 h-3.5" />
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
-        {/* Status badges row */}
-        <div className="flex flex-wrap gap-2">
-          {/* Joined */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">Sandbox joined:</span>
+      <CardContent className="space-y-3 px-4 sm:px-6">
+        {/* Status badges — stacked on very small screens */}
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Sandbox joined:</span>
             {status.joined
-              ? <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[11px] px-2">Yes</Badge>
-              : <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[11px] px-2">No</Badge>
+              ? <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[11px] px-2 shrink-0">Yes</Badge>
+              : <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[11px] px-2 shrink-0">No</Badge>
             }
           </div>
 
-          {/* Session */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">24h session:</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">24h session:</span>
             {status.sessionActive
-              ? <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[11px] px-2">Active</Badge>
-              : <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[11px] px-2">Expired</Badge>
+              ? <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-[11px] px-2 shrink-0">Active</Badge>
+              : <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-[11px] px-2 shrink-0">Expired</Badge>
             }
           </div>
         </div>
 
         {/* Last message time */}
         {lastMsgFormatted && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="w-3.5 h-3.5 shrink-0" />
-            Last message: <strong className="text-foreground">{lastMsgFormatted}</strong>
-            {hoursAgo !== null && (
-              <span className={hoursAgo >= 20 ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}>
-                ({hoursAgo === 0 ? 'just now' : `${hoursAgo}h ago`})
-              </span>
-            )}
+          <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
+            <Clock className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span className="break-words">
+              Last message:{' '}
+              <strong className="text-foreground">{lastMsgFormatted}</strong>
+              {hoursAgo !== null && (
+                <span className={`ml-1 ${hoursAgo >= 20 ? 'text-amber-600 dark:text-amber-400 font-medium' : ''}`}>
+                  ({hoursAgo === 0 ? 'just now' : `${hoursAgo}h ago`})
+                </span>
+              )}
+            </span>
           </div>
         )}
 
         {/* State-specific guidance */}
         {isActive && hoursAgo !== null && hoursAgo >= 20 && (
           <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed break-words">
               Your session expires in ~{24 - hoursAgo}h. Send any message to{' '}
-              <span className="font-mono font-semibold">{SANDBOX_NUMBER}</span> soon to keep reminders active.
+              <span className="font-mono font-semibold break-all">{SANDBOX_NUMBER}</span>{' '}
+              soon to keep reminders active.
             </p>
           </div>
         )}
 
         {isActive && (hoursAgo === null || hoursAgo < 20) && (
           <div className="p-2.5 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 rounded-lg">
-            <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed">
+            <p className="text-xs text-green-700 dark:text-green-400 leading-relaxed break-words">
               You're all set. WhatsApp reminders will be delivered to{' '}
-              <span className="font-mono font-semibold">{status.number}</span>.
+              <span className="font-mono font-semibold break-all">{status.number}</span>.
             </p>
           </div>
         )}
 
         {isJoinedNotActive && (
           <div className="p-2.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed break-words">
               Your 24h session has expired. Send <strong>any message</strong> (e.g. "hi") to{' '}
-              <span className="font-mono font-semibold">{SANDBOX_NUMBER}</span> on WhatsApp to reactivate.
-              Reminders will fall back to email until you do.
+              <span className="font-mono font-semibold break-all">{SANDBOX_NUMBER}</span>{' '}
+              on WhatsApp to reactivate. Reminders will fall back to email until you do.
             </p>
           </div>
         )}
@@ -194,14 +204,14 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
         {isNotJoined && (
           <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-lg">
             <p className="text-xs text-red-700 dark:text-red-400 leading-relaxed">
-              You haven't joined the sandbox yet. Follow the steps below to activate WhatsApp reminders.
-              Until then, reminders will be sent by email.
+              You haven't joined the sandbox yet. Follow the steps below to activate WhatsApp
+              reminders. Until then, reminders will be sent by email.
             </p>
           </div>
         )}
 
         {status.failReason && (
-          <p className="text-xs text-muted-foreground italic">{status.failReason}</p>
+          <p className="text-xs text-muted-foreground italic break-words">{status.failReason}</p>
         )}
       </CardContent>
     </Card>
@@ -211,27 +221,27 @@ function MySandboxStatus({ whatsappNumber }: { whatsappNumber: string }) {
 function WhatsAppJoinInstructions() {
   return (
     <Card className="border-green-200 dark:border-green-800">
-      <CardHeader className="pb-3">
+      <CardHeader className="pb-3 px-4 sm:px-6">
         <CardTitle className="flex items-center gap-2 text-base">
-          <MessageCircle className="w-5 h-5 text-green-500" />
+          <MessageCircle className="w-5 h-5 text-green-500 shrink-0" />
           Activate WhatsApp Reminders
         </CardTitle>
         <CardDescription>Two quick steps — done once, works forever</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-4 sm:px-6">
 
         <div className="space-y-1.5">
           <p className="text-sm font-semibold">Step 1 — Save this number in your phone</p>
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg font-mono text-sm">
-            <span className="flex-1 select-all">{SANDBOX_NUMBER}</span>
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg font-mono text-sm overflow-hidden">
+            <span className="flex-1 select-all truncate">{SANDBOX_NUMBER}</span>
             <CopyButton text={SANDBOX_NUMBER} />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <p className="text-sm font-semibold">Step 2 — Send this exact message on WhatsApp</p>
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg font-mono text-sm">
-            <span className="flex-1 select-all">{SANDBOX_CODE}</span>
+          <div className="flex items-center gap-2 px-3 py-2.5 bg-muted rounded-lg font-mono text-sm overflow-hidden">
+            <span className="flex-1 select-all truncate">{SANDBOX_CODE}</span>
             <CopyButton text={SANDBOX_CODE} />
           </div>
           <p className="text-xs text-muted-foreground">Send exactly as shown, including the word "join".</p>
@@ -246,11 +256,11 @@ function WhatsAppJoinInstructions() {
           <p className="text-xs text-amber-800 dark:text-amber-300 font-semibold mb-1">
             Keep your session active — send once a day
           </p>
-          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+          <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed break-words">
             WhatsApp sandbox requires you to send <strong>any message</strong> to{' '}
-            <span className="font-mono">{SANDBOX_NUMBER}</span> at least once every 24 hours.
-            A simple <span className="font-mono">"hi"</span> is enough.
-            If you miss a day your reminder won't arrive — just message again to reactivate.
+            <span className="font-mono break-all">{SANDBOX_NUMBER}</span> at least once every
+            24 hours. A simple <span className="font-mono">"hi"</span> is enough. If you miss a
+            day your reminder won't arrive — just message again to reactivate.
           </p>
         </div>
 
@@ -277,11 +287,12 @@ export default function SettingsPage() {
     setActiveTab(val as TabValue);
     router.replace(`/settings?tab=${val}`, { scroll: false });
   };
+
   const { user, token, setUser } = useAuthStore();
   const { setTheme } = useTheme();
-  const [loading, setLoading]   = useState(false);
-  const [message, setMessage]   = useState('');
-  const [error, setError]       = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError]     = useState('');
 
   const isAdmin = (user as any)?.isAdmin === true;
 
@@ -330,7 +341,9 @@ export default function SettingsPage() {
       setFieldErrors(fe => ({ ...fe, phone: r.valid ? '' : r.message }));
     }
     if (name === 'whatsappNumber') {
-      const r = String(newVal).trim() ? validateWhatsApp(String(newVal)) : { valid: true, message: '' };
+      const r = String(newVal).trim()
+        ? validateWhatsApp(String(newVal))
+        : { valid: true, message: '' };
       setFieldErrors(fe => ({ ...fe, whatsappNumber: r.valid ? '' : r.message }));
     }
   };
@@ -407,47 +420,75 @@ export default function SettingsPage() {
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your account and preferences</p>
+      <div className="max-w-2xl mx-auto space-y-6 px-4 sm:px-0">
+        <div className="space-y-1">
+          <h1 className="text-3xl sm:text-4xl font-bold">Settings</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage your account and preferences</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="preferences">Preferences</TabsTrigger>
-            <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
-            <TabsTrigger value="about">About</TabsTrigger>
-          </TabsList>
+          {/* Tabs scroll horizontally on tiny screens instead of squishing */}
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <TabsList className="inline-flex w-full min-w-[320px] sm:grid sm:grid-cols-4">
+              <TabsTrigger value="profile" className="text-xs sm:text-sm">Profile</TabsTrigger>
+              <TabsTrigger value="preferences" className="text-xs sm:text-sm">Preferences</TabsTrigger>
+              <TabsTrigger value="whatsapp" className="text-xs sm:text-sm">WhatsApp</TabsTrigger>
+              <TabsTrigger value="about" className="text-xs sm:text-sm">About</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ─── Profile ─── */}
           <TabsContent value="profile" className="space-y-4 mt-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="px-4 sm:px-6">
                 <CardTitle>Profile Information</CardTitle>
                 <CardDescription>Fields marked * are required.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSaveProfile} className="space-y-6" noValidate>
+              <CardContent className="px-4 sm:px-6">
+                <form onSubmit={handleSaveProfile} className="space-y-5" noValidate>
                   {successBanner}{errorBanner}
                   <div className="space-y-1">
                     <label htmlFor="name" className="text-sm font-medium">Full Name *</label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleChange} maxLength={80} className={fieldErrors.name ? 'border-destructive' : ''} />
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      maxLength={80}
+                      className={fieldErrors.name ? 'border-destructive' : ''}
+                    />
                     <FieldError message={fieldErrors.name} />
                   </div>
                   <div className="space-y-1">
                     <label htmlFor="email" className="text-sm font-medium">Email</label>
-                    <Input id="email" name="email" value={formData.email} disabled className="opacity-50 cursor-not-allowed" />
+                    <Input
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      disabled
+                      className="opacity-50 cursor-not-allowed"
+                    />
                     <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
                   </div>
                   <div className="space-y-1">
-                    <label htmlFor="phone" className="text-sm font-medium">Phone Number <span className="font-normal text-muted-foreground">(optional)</span></label>
-                    <Input id="phone" name="phone" type="tel" placeholder="+91 9440667351" value={formData.phone} onChange={handleChange} className={fieldErrors.phone ? 'border-destructive' : ''} />
+                    <label htmlFor="phone" className="text-sm font-medium">
+                      Phone Number <span className="font-normal text-muted-foreground">(optional)</span>
+                    </label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      type="tel"
+                      placeholder="+91 9440667351"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className={fieldErrors.phone ? 'border-destructive' : ''}
+                    />
                     <FieldError message={fieldErrors.phone} />
                     <p className="text-xs text-muted-foreground">Format: +country_code number</p>
                   </div>
-                  <Button type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save Changes'}</Button>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+                    {loading ? 'Saving…' : 'Save Changes'}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -456,29 +497,52 @@ export default function SettingsPage() {
           {/* ─── Preferences ─── */}
           <TabsContent value="preferences" className="space-y-4 mt-6">
             <Card>
-              <CardHeader>
+              <CardHeader className="px-4 sm:px-6">
                 <CardTitle>Preferences</CardTitle>
                 <CardDescription>Customize your app experience</CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSaveProfile} className="space-y-6">
+              <CardContent className="px-4 sm:px-6">
+                <form onSubmit={handleSaveProfile} className="space-y-5">
                   {successBanner}{errorBanner}
                   <div className="space-y-2">
                     <label htmlFor="theme" className="text-sm font-medium">Theme</label>
-                    <select id="theme" name="theme" value={formData.theme} onChange={handleChange} className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground">
+                    <select
+                      id="theme"
+                      name="theme"
+                      value={formData.theme}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm"
+                    >
                       <option value="light">Light</option>
                       <option value="dark">Dark</option>
                     </select>
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="reminderTime" className="text-sm font-medium">Daily Reminder Time</label>
-                    <Input id="reminderTime" name="reminderTime" type="time" value={formData.reminderTime} onChange={handleChange} />
+                    <Input
+                      id="reminderTime"
+                      name="reminderTime"
+                      type="time"
+                      value={formData.reminderTime}
+                      onChange={handleChange}
+                    />
                   </div>
                   <div className="flex items-center gap-2">
-                    <input id="whatsappReminders" name="whatsappReminders" type="checkbox" checked={formData.whatsappReminders} onChange={handleChange} className="w-4 h-4 rounded border-border" />
-                    <label htmlFor="whatsappReminders" className="text-sm font-medium cursor-pointer">Enable WhatsApp Reminders</label>
+                    <input
+                      id="whatsappReminders"
+                      name="whatsappReminders"
+                      type="checkbox"
+                      checked={formData.whatsappReminders}
+                      onChange={handleChange}
+                      className="w-4 h-4 rounded border-border"
+                    />
+                    <label htmlFor="whatsappReminders" className="text-sm font-medium cursor-pointer">
+                      Enable WhatsApp Reminders
+                    </label>
                   </div>
-                  <Button type="submit" disabled={loading}>{loading ? 'Saving…' : 'Save Preferences'}</Button>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+                    {loading ? 'Saving…' : 'Save Preferences'}
+                  </Button>
                 </form>
               </CardContent>
             </Card>
@@ -487,7 +551,7 @@ export default function SettingsPage() {
           {/* ─── WhatsApp ─── */}
           <TabsContent value="whatsapp" className="space-y-4 mt-6">
 
-            {/* 1. Personal session status — every user sees their own */}
+            {/* 1. Personal session status */}
             <MySandboxStatus whatsappNumber={formData.whatsappNumber} />
 
             {/* 2. Join instructions */}
@@ -495,16 +559,17 @@ export default function SettingsPage() {
 
             {/* 3. Number + reminder type form */}
             <Card>
-              <CardHeader>
+              <CardHeader className="px-4 sm:px-6">
                 <CardTitle>Your WhatsApp Number</CardTitle>
                 <CardDescription>Save the number you used to join the sandbox</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 px-4 sm:px-6">
                 {successBanner}{errorBanner}
                 <form onSubmit={handleSaveWhatsApp} className="space-y-4" noValidate>
                   <div className="space-y-1">
                     <label htmlFor="whatsappNumber" className="text-sm font-medium">
-                      WhatsApp Number <span className="text-muted-foreground font-normal">(country code + digits, no + or spaces)</span>
+                      WhatsApp Number{' '}
+                      <span className="text-muted-foreground font-normal">(country code + digits, no + or spaces)</span>
                     </label>
                     <Input
                       id="whatsappNumber"
@@ -515,8 +580,9 @@ export default function SettingsPage() {
                       className={fieldErrors.whatsappNumber ? 'border-destructive' : ''}
                     />
                     <FieldError message={fieldErrors.whatsappNumber} />
-                    <p className="text-xs text-muted-foreground">
-                      Examples: <code className="bg-muted px-1 rounded">919440667351</code> (India +91) ·{' '}
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Examples:{' '}
+                      <code className="bg-muted px-1 rounded">919440667351</code> (India +91) ·{' '}
                       <code className="bg-muted px-1 rounded">14155238886</code> (US +1) ·{' '}
                       <code className="bg-muted px-1 rounded">447700900123</code> (UK +44)
                     </p>
@@ -528,14 +594,14 @@ export default function SettingsPage() {
                       name="reminderType"
                       value={formData.reminderType}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                      className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground text-sm"
                     >
                       <option value="daily">Daily (at your per-habit scheduled time)</option>
                       <option value="weekly">Weekly Summary (Sunday 9 PM IST)</option>
-                      <option value="both">Both Daily & Weekly</option>
+                      <option value="both">Both Daily &amp; Weekly</option>
                     </select>
                   </div>
-                  <Button type="submit" disabled={loading}>
+                  <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                     {loading ? 'Saving…' : 'Save WhatsApp Settings'}
                   </Button>
                 </form>
@@ -557,11 +623,13 @@ export default function SettingsPage() {
           {/* ─── About ─── */}
           <TabsContent value="about" className="space-y-4 mt-6">
             <Card>
-              <CardHeader><CardTitle>About Habit Tracker</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
+              <CardHeader className="px-4 sm:px-6">
+                <CardTitle>About Habit Tracker</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 px-4 sm:px-6">
                 <div>
-                  <h3 className="font-semibold mb-2">Version</h3>
-                  <p className="text-muted-foreground">1.0.0</p>
+                  <h3 className="font-semibold mb-1">Version</h3>
+                  <p className="text-muted-foreground text-sm">1.0.0</p>
                 </div>
                 <div>
                   <h3 className="font-semibold mb-2">Features</h3>
@@ -576,8 +644,8 @@ export default function SettingsPage() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">Support</h3>
-                  <p className="text-muted-foreground text-sm">mr.chandu.22@gmail.com</p>
+                  <h3 className="font-semibold mb-1">Support</h3>
+                  <p className="text-muted-foreground text-sm break-all">mr.chandu.22@gmail.com</p>
                 </div>
               </CardContent>
             </Card>
