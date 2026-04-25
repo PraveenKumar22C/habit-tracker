@@ -29,7 +29,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Auto-close sidebar on desktop resize to mobile
   useEffect(() => {
     const onResize = () => {
       if (window.innerWidth < 768) setSidebarOpen(false);
@@ -37,6 +36,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [setSidebarOpen]);
+
+  const handleToggleSidebar = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) return;
+    toggleSidebar();
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -66,9 +70,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm hidden md:block"
           style={{ animation: "fadeIn 0.2s ease" }}
-          onClick={toggleSidebar}
+          onClick={handleToggleSidebar}
         />
       )}
 
@@ -76,7 +80,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         className={`
           fixed top-0 left-0 h-full z-50
           bg-sidebar border-r border-sidebar-border
-          flex flex-col
+          hidden md:flex flex-col
           transition-all duration-300 ease-in-out
           ${sidebarOpen ? "w-64 shadow-2xl" : "w-0 overflow-hidden border-r-0"}
         `}
@@ -94,8 +98,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <button
-            onClick={toggleSidebar}
-            className="md:hidden p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
+            onClick={handleToggleSidebar}
+            className="p-1 rounded-lg hover:bg-muted text-muted-foreground transition-colors"
           >
             <X size={18} />
           </button>
@@ -103,12 +107,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {navLinks.slice(0, 3).map((link) => (
-            <SideNavLink key={link.href} {...link} onClick={toggleSidebar} />
+            <SideNavLink key={link.href} {...link} onClick={handleToggleSidebar} />
           ))}
         </nav>
 
         <div className="p-3 border-t border-sidebar-border space-y-1">
-          <SideNavLink {...navLinks[3]} onClick={toggleSidebar} />
+          <SideNavLink {...navLinks[3]} onClick={handleToggleSidebar} />
           <button
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200"
             onClick={handleLogout}
@@ -146,11 +150,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           }}
         >
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Sidebar toggle – hidden on mobile, shown on md+ */}
             <Button
               variant="ghost"
               size="icon"
-              onClick={toggleSidebar}
-              className="shrink-0 text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-all duration-200 text-sm sm:text-base"
+              onClick={handleToggleSidebar}
+              className="hidden md:inline-flex shrink-0 text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/40 transition-all duration-200 text-sm sm:text-base"
             >
               <Menu size={20} />
             </Button>
@@ -182,7 +187,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </div>
         </main>
 
-        <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-center justify-around px-2 py-1 safe-bottom">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-card border-t border-border flex items-center justify-around px-2 py-1 safe-bottom">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -199,6 +204,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-[10px] font-semibold">{link.label}</span>
             </Link>
           ))}
+          <button
+            onClick={handleLogout}
+            className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl transition-all duration-200 text-muted-foreground hover:text-destructive"
+          >
+            <LogOut size={18} />
+            <span className="text-[10px] font-semibold">Logout</span>
+          </button>
         </nav>
       </div>
     </div>

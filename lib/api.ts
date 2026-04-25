@@ -1,5 +1,15 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 
+function handleAuthError() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("token");
+  try {
+    const { useAuthStore } = require("@/lib/store");
+    useAuthStore.getState().logout();
+  } catch {}
+  window.location.href = "/login";
+}
+
 export const api = {
   async request(endpoint: string, options: RequestInit = {}) {
     const token =
@@ -18,6 +28,10 @@ export const api = {
     });
 
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        handleAuthError();
+        throw new Error("Session expired. Please log in again.");
+      }
       const error = await response.json();
       throw error;
     }
@@ -40,6 +54,10 @@ export const api = {
     const response = await fetch(url, { ...options, headers, cache: 'no-store' });
  
     if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        handleAuthError();
+        throw new Error("Session expired. Please log in again.");
+      }
       const error = await response.json();
       throw error;
     }
